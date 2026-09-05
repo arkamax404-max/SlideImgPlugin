@@ -33,7 +33,7 @@ $ExpectedPluginUuid = 'com.arkamax.ulanzi.imageslide'
 $ExpectedActionUuid = 'com.arkamax.ulanzi.imageslide.slideshow'
 $ExpectedSetupUuid = 'com.arkamax.ulanzi.imageslide.setup'
 $ExpectedCodePath = 'plugin/app.js'
-$ExpectedPluginVersion = '0.3.0'
+$ExpectedPluginVersion = '0.3.1'
 
 function Get-NormalizedPath {
     param([Parameter(Mandatory = $true)][string]$Path)

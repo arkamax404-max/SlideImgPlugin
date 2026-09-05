@@ -2,6 +2,7 @@ import contextlib, hashlib, importlib.util, io, json, subprocess, tempfile, unit
 from pathlib import Path
 
 ROOT=Path(__file__).resolve().parent.parent
+PLUGIN=ROOT/"com.arkamax.ulanzi.imageslide.ulanziPlugin"
 SOURCE=Path(r"D:\Desarrollo\UlanziBigButtomPlugin\POST_Arkamax.ulanziDeckProfile")
 TARGET="a8eace19-3a71-47a9-ae9e-5e1bfc1c13c8"
 SETUP_ID="11111111-1111-4111-8111-111111111111"
@@ -10,7 +11,7 @@ spec=importlib.util.spec_from_file_location("profile_tool",ROOT/"tools"/"profile
 
 class DeliveryTests(unittest.TestCase):
     def _resolve_fixture(self, devices, stores, pressed_key="0_0", action_id=SETUP_ID):
-        helper=(ROOT/"source"/"com.arkamax.ulanzi.imageslide.ulanziPlugin"/"helper"/"Invoke-ImageSlideSetup.ps1").read_text(encoding="utf-8")
+        helper=(PLUGIN/"helper"/"Invoke-ImageSlideSetup.ps1").read_text(encoding="utf-8")
         prefix=helper[helper.index("$ActionUuid="):helper.index("$exitCode=0")]
         with tempfile.TemporaryDirectory() as td:
             base=Path(td)/"UlanziDeck";(base/"Config").mkdir(parents=True)
@@ -34,7 +35,7 @@ class DeliveryTests(unittest.TestCase):
         return {"Type":"Keypad","Actions":{"3_2":{"Action":action},setup_key:{"Action":setup_action,"ActionID":setup_id}}}
 
     def _requested_target_fixture(self, case):
-        helper=(ROOT/"source"/"com.arkamax.ulanzi.imageslide.ulanziPlugin"/"helper"/"Invoke-ImageSlideSetup.ps1").read_text(encoding="utf-8");prefix=helper[helper.index("$ActionUuid="):helper.index("$exitCode=0")]
+        helper=(PLUGIN/"helper"/"Invoke-ImageSlideSetup.ps1").read_text(encoding="utf-8");prefix=helper[helper.index("$ActionUuid="):helper.index("$exitCode=0")]
         group_id="group-a";page_id="page-a";other_page="page-b"
         with tempfile.TemporaryDirectory() as td:
             base=Path(td)/"UlanziDeck";(base/"Config").mkdir(parents=True);(base/"Config"/"setting_source.json").write_text(json.dumps({"Devices":[{"CurrentProfile":"Arkamax","CurrentDevice":"device-1"}]}),encoding="utf-8")
@@ -64,10 +65,10 @@ class DeliveryTests(unittest.TestCase):
     def test_delivered_profile_receipt_and_action_metadata(self):
         profile=ROOT/"ImageSlide.ulanziDeckProfile";receipt=json.loads(Path(str(profile)+".receipt.json").read_text(encoding="utf-8"));data=profile.read_bytes();self.assertEqual(receipt["output_sha256"],hashlib.sha256(data).hexdigest())
         _,z=tool.read_archive(profile);entry=json.loads(z.read(receipt["manifest_member"]))["Controllers"][receipt["controller_index"]]["Actions"]["3_2"]
-        self.assertEqual(entry["Action"],"com.arkamax.ulanzi.imageslide.slideshow");self.assertEqual(entry["Plugin"],{"Name":"Image Slideshow","UUID":"com.arkamax.ulanzi.imageslide","Version":"0.3.0"})
+        self.assertEqual(entry["Action"],"com.arkamax.ulanzi.imageslide.slideshow");self.assertEqual(entry["Plugin"],{"Name":"Image Slideshow","UUID":"com.arkamax.ulanzi.imageslide","Version":"0.3.1"})
 
     def test_helper_is_pinned_fail_closed_two_stage_and_atomic(self):
-        plugin=ROOT/"source"/"com.arkamax.ulanzi.imageslide.ulanziPlugin";helper=(plugin/"helper"/"Invoke-ImageSlideSetup.ps1").read_text(encoding="utf-8");compat=json.loads((plugin/"helper"/"compatibility.json").read_text())
+        plugin=PLUGIN;helper=(plugin/"helper"/"Invoke-ImageSlideSetup.ps1").read_text(encoding="utf-8");compat=json.loads((plugin/"helper"/"compatibility.json").read_text())
         self.assertEqual(compat["studio"]["fileVersion"],"3.2.11.0");self.assertEqual(compat["studio"]["sha256"],"eee2458802e36170e8b09fe58d5d8f9b616813ee362fc83ac99884b3615509c4")
         for marker in ("COMPATIBILITY_UNSUPPORTED","PROFILE_AMBIGUOUS","SLOT_UNRELATED","if(StudioRunning)","Copy-Item -LiteralPath $manifest -Destination $backup","[IO.File]::Replace($temp,$manifest,$replaceBackup)","FindRestoreCandidate","ResolveRequestedRestore","Start-Process -FilePath $studio"):
             self.assertIn(marker,helper)
@@ -75,7 +76,7 @@ class DeliveryTests(unittest.TestCase):
         self.assertEqual(compat["state"]["settingSource"],"Config\\setting_source.json");self.assertEqual(compat["state"]["profileStores"],["ProfilesV2","ProfilesV1"])
 
     def test_helper_prefers_v2_and_persists_bounded_codes(self):
-        plugin=ROOT/"source"/"com.arkamax.ulanzi.imageslide.ulanziPlugin";helper=(plugin/"helper"/"Invoke-ImageSlideSetup.ps1").read_text(encoding="utf-8")
+        plugin=PLUGIN;helper=(plugin/"helper"/"Invoke-ImageSlideSetup.ps1").read_text(encoding="utf-8")
         resolve=helper[helper.index("function ResolveTarget"):helper.index("$exitCode=0")]
         self.assertLess(resolve.index("FindStoreMatches 'ProfilesV2'"),resolve.index("FindStoreMatches 'ProfilesV1'"))
         self.assertIn("SetPhase 'TARGET_RESOLUTION'",resolve);self.assertIn("UniqueTargets",resolve)
@@ -84,14 +85,14 @@ class DeliveryTests(unittest.TestCase):
         self.assertIn("last-diagnostic.json",helper);self.assertIn("IMAGESLIDE_DIAGNOSTIC:",helper);self.assertNotIn("profileContents",helper)
 
     def test_apply_precheck_requires_current_versioned_request(self):
-        helper=(ROOT/"source"/"com.arkamax.ulanzi.imageslide.ulanziPlugin"/"helper"/"Invoke-ImageSlideSetup.ps1").read_text(encoding="utf-8")
+        helper=(PLUGIN/"helper"/"Invoke-ImageSlideSetup.ps1").read_text(encoding="utf-8")
         precheck=helper[helper.index("SetPhase 'APPLY_PRECHECK';if(StudioRunning)"):helper.index("$target=$(if($Mode-eq'Prepare')")]
         self.assertIn("setup-request/v5",precheck);self.assertIn("$requestVersion-ne$PluginVersion",precheck);self.assertIn("$expires-lt[DateTime]::UtcNow",precheck)
         self.assertGreaterEqual(precheck.count("REPREPARE_REQUIRED"),10);self.assertNotIn("ResolveRequestedTarget",precheck)
         self.assertIn("pluginVersion=$PluginVersion",helper);self.assertIn("function ValidSafeSegment",helper);self.assertNotIn("not(ValidUuid $groupId)",helper)
 
     def test_production_shape_patch_restore_round_trip_is_byte_exact(self):
-        helper=(ROOT/"source"/"com.arkamax.ulanzi.imageslide.ulanziPlugin"/"helper"/"Invoke-ImageSlideSetup.ps1").read_text(encoding="utf-8")
+        helper=(PLUGIN/"helper"/"Invoke-ImageSlideSetup.ps1").read_text(encoding="utf-8")
         self.assertIn("[IO.File]::Replace($temp,$manifest,$replaceBackup)",helper);self.assertIn("[IO.File]::Replace($restoreTemp,$manifest,$failedPatched)",helper)
         self.assertNotIn("[IO.File]::Replace($temp,$manifest,$null)",helper);self.assertNotIn("[IO.File]::Replace($restoreTemp,$manifest,$null)",helper)
         _,archive=tool.read_archive(SOURCE);candidate=next(item for item in tool.candidates(archive) if item["profile_id"]==TARGET);original=archive.read(candidate["manifest"])
@@ -101,7 +102,7 @@ class DeliveryTests(unittest.TestCase):
 $manifest='{quoted(manifest)}';$backup='{quoted(root/"replace-backup.json")}'
 $before=[IO.File]::ReadAllBytes($manifest);$doc=Get-Content -LiteralPath $manifest -Raw -Encoding UTF8|ConvertFrom-Json
 $pads=@($doc.Controllers|Where-Object{{$_.Type-eq'Keypad'-and$null-ne$_.Actions.PSObject.Properties['3_2']}});if($pads.Count-ne1){{throw 'shape'}}
-$entry=[ordered]@{{Action='com.arkamax.ulanzi.imageslide.slideshow';ActionID=[guid]::NewGuid().ToString();ActionParam=[ordered]@{{SmallViewMode=2}};LinkedTitle=$true;Name='Image Slideshow';Plugin=[ordered]@{{Name='Image Slideshow';UUID='com.arkamax.ulanzi.imageslide';Version='0.3.0'}};State=0;ViewParam=@([ordered]@{{Icon='';IconRel='';Name='Image Slideshow'}})}}
+$entry=[ordered]@{{Action='com.arkamax.ulanzi.imageslide.slideshow';ActionID=[guid]::NewGuid().ToString();ActionParam=[ordered]@{{SmallViewMode=2}};LinkedTitle=$true;Name='Image Slideshow';Plugin=[ordered]@{{Name='Image Slideshow';UUID='com.arkamax.ulanzi.imageslide';Version='0.3.1'}};State=0;ViewParam=@([ordered]@{{Icon='';IconRel='';Name='Image Slideshow'}})}}
 $pads[0].Actions|Add-Member -NotePropertyName '3_2' -NotePropertyValue $entry -Force;$temp=$manifest+'.tmp';[IO.File]::WriteAllText($temp,($doc|ConvertTo-Json -Depth 30),(New-Object Text.UTF8Encoding($false)))
 $check=Get-Content -LiteralPath $temp -Raw -Encoding UTF8|ConvertFrom-Json;if($check.Controllers[1].Actions.'3_2'.Action-ne'com.arkamax.ulanzi.imageslide.slideshow'){{throw 'temp-readback'}}
 [IO.File]::Replace($temp,$manifest,$backup);$after=Get-Content -LiteralPath $manifest -Raw -Encoding UTF8|ConvertFrom-Json;$patched=[IO.File]::ReadAllBytes($manifest)
@@ -111,7 +112,7 @@ $restoreTemp=$manifest+'.restore';Copy-Item -LiteralPath $backup -Destination $r
             run=subprocess.run(["powershell.exe","-NoProfile","-ExecutionPolicy","Bypass","-File",str(script)],capture_output=True,text=True);self.assertEqual(run.returncode,0,run.stdout+run.stderr);result=json.loads(run.stdout);self.assertTrue(result["backupMatches"]);self.assertEqual(result["action"],"com.arkamax.ulanzi.imageslide.slideshow");self.assertTrue(result["restored"]);self.assertTrue(result["failedMatches"])
 
     def _restore_candidate_fixture(self,case):
-        helper=(ROOT/"source"/"com.arkamax.ulanzi.imageslide.ulanziPlugin"/"helper"/"Invoke-ImageSlideSetup.ps1").read_text(encoding="utf-8");prefix=helper[helper.index("$ActionUuid="):helper.index("$exitCode=0")]
+        helper=(PLUGIN/"helper"/"Invoke-ImageSlideSetup.ps1").read_text(encoding="utf-8");prefix=helper[helper.index("$ActionUuid="):helper.index("$exitCode=0")]
         with tempfile.TemporaryDirectory() as td:
             root=Path(td);manifest=root/"manifest.json";original=json.dumps({"Controllers":[self._keypad()]},separators=(",",":")).encode();patched=json.dumps({"Controllers":[self._keypad(action="com.arkamax.ulanzi.imageslide.slideshow")]},separators=(",",":")).encode();manifest.write_bytes(patched);backup_root=root/"backups";run=backup_root/"run-a";run.mkdir(parents=True);backup=run/"manifest.before.json";backup.write_bytes(original)
             target={"store":"ProfilesV2","groupId":"group-a","pageId":"page-a","key":"3_2"};receipt={"schema":"com.arkamax.ulanzi.imageslide.setup-receipt/v1","operation":("apply-or-repair" if case=="legacy_019" else "patch"),"result":"success","target":dict(target),"beforeSha256":hashlib.sha256(original).hexdigest(),"afterSha256":hashlib.sha256(patched).hexdigest(),"backupSha256":hashlib.sha256(original).hexdigest(),"action":"com.arkamax.ulanzi.imageslide.slideshow"}
@@ -133,10 +134,10 @@ $restoreTemp=$manifest+'.restore';Copy-Item -LiteralPath $backup -Destination $r
 
     def test_first_020_press_restores_verified_019_patch_lineage(self):
         run=self._restore_candidate_fixture("legacy_019");self.assertEqual(run.returncode,0,run.stdout+run.stderr);self.assertEqual(json.loads(run.stdout)["phase"],"RESTORE_RESOLUTION")
-        helper=(ROOT/"source"/"com.arkamax.ulanzi.imageslide.ulanziPlugin"/"helper"/"Invoke-ImageSlideSetup.ps1").read_text(encoding="utf-8");self.assertIn("@('apply-or-repair','patch')",helper)
+        helper=(PLUGIN/"helper"/"Invoke-ImageSlideSetup.ps1").read_text(encoding="utf-8");self.assertIn("@('apply-or-repair','patch')",helper)
 
     def test_missing_properties_are_guarded_under_strict_mode(self):
-        helper=(ROOT/"source"/"com.arkamax.ulanzi.imageslide.ulanziPlugin"/"helper"/"Invoke-ImageSlideSetup.ps1").read_text(encoding="utf-8")
+        helper=(PLUGIN/"helper"/"Invoke-ImageSlideSetup.ps1").read_text(encoding="utf-8")
         for marker in ("Required $state 'Devices'","Required $device 'CurrentProfile'","Required $device 'CurrentDevice'","Required $gm 'Name'","Required $gm 'Device'","Required $gm 'Pages'","Required $Document 'Controllers'","Required $largeControllers[0] 'Actions'"):
             self.assertIn(marker,helper)
 
@@ -151,7 +152,7 @@ $restoreTemp=$manifest+'.restore';Copy-Item -LiteralPath $backup -Destination $r
         def run_for(action):return self._resolve_fixture(devices,{"ProfilesV2":[{"id":"group-a","name":"Arkamax","device":"device-1","current":"page-a","pages":{"page-a":[self._keypad(action=action)]}}]})
         restore=run_for("com.arkamax.ulanzi.imageslide.slideshow");self.assertEqual(restore.returncode,0,restore.stdout+restore.stderr);self.assertEqual(json.loads(restore.stdout)["kind"],"restore")
         refuse=run_for("com.example.unrelated");self.assertEqual(refuse.returncode,2);self.assertIn("SLOT_UNRELATED|INTEGRITY|SLOT_VALIDATION",refuse.stdout)
-        helper=(ROOT/"source"/"com.arkamax.ulanzi.imageslide.ulanziPlugin"/"helper"/"Invoke-ImageSlideSetup.ps1").read_text(encoding="utf-8");self.assertIn("$target.Kind-ne$requestedOperation",helper)
+        helper=(PLUGIN/"helper"/"Invoke-ImageSlideSetup.ps1").read_text(encoding="utf-8");self.assertIn("$target.Kind-ne$requestedOperation",helper)
 
     def test_setup_action_id_selects_one_of_multiple_same_name_clones(self):
         devices=[{"CurrentProfile":"Arkamax","CurrentDevice":"device-1"}]
@@ -202,30 +203,30 @@ $restoreTemp=$manifest+'.restore';Copy-Item -LiteralPath $backup -Destination $r
         run=self._resolve_fixture(devices,{"ProfilesV2":[group]});self.assertEqual(run.returncode,0,run.stdout+run.stderr);self.assertEqual(json.loads(run.stdout)["pageId"],"page-current")
 
     def test_absent_v2_falls_back_but_unreadable_store_is_stable_failure(self):
-        helper=(ROOT/"source"/"com.arkamax.ulanzi.imageslide.ulanziPlugin"/"helper"/"Invoke-ImageSlideSetup.ps1").read_text(encoding="utf-8")
+        helper=(PLUGIN/"helper"/"Invoke-ImageSlideSetup.ps1").read_text(encoding="utf-8")
         self.assertIn("if(-not(Test-Path -LiteralPath $store -PathType Container)){return @()}",helper)
         self.assertIn("catch{Fail 'PROFILE_STORE_UNREADABLE' 'ACCESS'}",helper)
         self.assertLess(helper.index("FindStoreMatches 'ProfilesV2'"),helper.index("FindStoreMatches 'ProfilesV1'"))
 
     def test_malformed_manifests_map_before_property_access(self):
-        helper=(ROOT/"source"/"com.arkamax.ulanzi.imageslide.ulanziPlugin"/"helper"/"Invoke-ImageSlideSetup.ps1").read_text(encoding="utf-8")
+        helper=(PLUGIN/"helper"/"Invoke-ImageSlideSetup.ps1").read_text(encoding="utf-8")
         self.assertIn("ReadJson $groupManifest 'MANIFEST_INVALID' 'SCHEMA'",helper);self.assertIn("ReadJson $pageManifest 'MANIFEST_INVALID' 'SCHEMA'",helper)
 
     def test_failure_preserves_allowlisted_phase(self):
-        helper=(ROOT/"source"/"com.arkamax.ulanzi.imageslide.ulanziPlugin"/"helper"/"Invoke-ImageSlideSetup.ps1").read_text(encoding="utf-8")
+        helper=(PLUGIN/"helper"/"Invoke-ImageSlideSetup.ps1").read_text(encoding="utf-8")
         final=helper[helper.rindex("}catch{"):]
         self.assertIn("WriteDiagnostic 'failed' $code $CurrentPhase $category",final);self.assertNotIn("WriteDiagnostic 'failed' $code 'complete'",final)
         for phase in ("COMPATIBILITY","SETTINGS_READ","SETTINGS_SCHEMA","V2_ENUMERATION","V1_FALLBACK","DEVICE_PROFILE_MATCH","PAGE_READ","SLOT_VALIDATION","REQUEST_WRITE"):
             self.assertIn("'"+phase+"'",helper)
 
     def test_compatibility_subphases_wrap_every_boundary(self):
-        helper=(ROOT/"source"/"com.arkamax.ulanzi.imageslide.ulanziPlugin"/"helper"/"Invoke-ImageSlideSetup.ps1").read_text(encoding="utf-8")
+        helper=(PLUGIN/"helper"/"Invoke-ImageSlideSetup.ps1").read_text(encoding="utf-8")
         phases=("COMPAT_PLUGIN_ROOT","COMPAT_MANIFEST_READ","COMPAT_EXE_PATH","COMPAT_VERSION_READ","COMPAT_HASH_READ","COMPAT_ENV_PATHS")
         positions=[helper.index("SetPhase '"+phase+"'") for phase in phases];self.assertEqual(positions,sorted(positions))
         for start,end in zip(positions,positions[1:]+[helper.index("$request=$null;$bindingHash=''")]):self.assertIn("try{",helper[start:end]);self.assertIn("catch{",helper[start:end])
 
     def test_direct_dotnet_sha256_matches_fixture_and_pinned_executable(self):
-        helper=(ROOT/"source"/"com.arkamax.ulanzi.imageslide.ulanziPlugin"/"helper"/"Invoke-ImageSlideSetup.ps1").read_text(encoding="utf-8")
+        helper=(PLUGIN/"helper"/"Invoke-ImageSlideSetup.ps1").read_text(encoding="utf-8")
         function=helper[helper.index("function HashFileDirect"):helper.index("function ReadJson")]
         self.assertNotIn("Get-FileHash",function);self.assertIn("SHA256]::Create",function);self.assertIn("FileShare]::ReadWrite",function);self.assertGreaterEqual(function.count(".Dispose()"),2)
         executable=Path(r"C:\Program Files (x86)\UlanziDeck\UlanziDeck.exe")
@@ -238,7 +239,7 @@ $restoreTemp=$manifest+'.restore';Copy-Item -LiteralPath $backup -Destination $r
         self.assertEqual(hashes,[hashlib.sha256(b"ImageSlidePlugin direct hash fixture\n").hexdigest(),expected])
 
     def test_request_pointer_publication_and_all_runtime_hashes_are_direct(self):
-        plugin=ROOT/"source"/"com.arkamax.ulanzi.imageslide.ulanziPlugin";helper=(plugin/"helper"/"Invoke-ImageSlideSetup.ps1").read_text(encoding="utf-8");installer=(ROOT/"Install-ImageSlidePlugin.ps1").read_text(encoding="utf-8")
+        plugin=PLUGIN;helper=(plugin/"helper"/"Invoke-ImageSlideSetup.ps1").read_text(encoding="utf-8");installer=(ROOT/"Install-ImageSlidePlugin.ps1").read_text(encoding="utf-8")
         self.assertNotIn("Get-FileHash",helper);self.assertNotIn("Get-FileHash",installer);self.assertIn("function Hash([string]$Path){HashFileDirect $Path}",helper)
         prefix=helper[helper.index("function Full"):helper.index("function StudioRunning")]
         with tempfile.TemporaryDirectory() as td:
@@ -249,7 +250,7 @@ $restoreTemp=$manifest+'.restore';Copy-Item -LiteralPath $backup -Destination $r
         request_end=helper.index("WriteDiagnostic 'prepared'");request_start=helper.rfind("if($Mode-eq'Prepare'){",0,request_end);request_block=helper[request_start:request_end];self.assertLess(request_block.index("WriteUtf8 $hashFile"),request_block.index("current.json"))
 
     def test_diagnostic_record_has_privacy_bounded_fields_only(self):
-        helper=(ROOT/"source"/"com.arkamax.ulanzi.imageslide.ulanziPlugin"/"helper"/"Invoke-ImageSlideSetup.ps1").read_text(encoding="utf-8");setup=(ROOT/"source"/"com.arkamax.ulanzi.imageslide.ulanziPlugin"/"plugin"/"setup.js").read_text(encoding="utf-8")
+        helper=(PLUGIN/"helper"/"Invoke-ImageSlideSetup.ps1").read_text(encoding="utf-8");setup=(PLUGIN/"plugin"/"setup.js").read_text(encoding="utf-8")
         record=helper[helper.index("$record=[ordered]@"):helper.index("try{WriteUtf8 $diagnosticPath")]
         self.assertIn("timestampUtc",record);self.assertIn("category",record)
         for forbidden in ("message=","path=","profile=","username=","hostname=","content="):self.assertNotIn(forbidden.lower(),record.lower())
@@ -257,7 +258,8 @@ $restoreTemp=$manifest+'.restore';Copy-Item -LiteralPath $backup -Destination $r
         self.assertIn('Start-ImageSlideSetup.ps1',setup);self.assertIn('stdio:"ignore"',setup);self.assertNotIn("console.log",setup);self.assertIn("diagnosticResult",setup)
 
     def test_installer_and_source_have_only_new_product_identity(self):
-        plugin=ROOT/"source"/"com.arkamax.ulanzi.imageslide.ulanziPlugin";manifest=json.loads((plugin/"manifest.json").read_text());self.assertEqual(manifest["UUID"],"com.arkamax.ulanzi.imageslide");self.assertEqual([a["UUID"] for a in manifest["Actions"]],["com.arkamax.ulanzi.imageslide.slideshow","com.arkamax.ulanzi.imageslide.setup"])
+        plugin=PLUGIN;manifest=json.loads((plugin/"manifest.json").read_text());self.assertEqual(manifest["UUID"],"com.arkamax.ulanzi.imageslide");self.assertEqual([a["UUID"] for a in manifest["Actions"]],["com.arkamax.ulanzi.imageslide.slideshow","com.arkamax.ulanzi.imageslide.setup"])
+        self.assertEqual(list(ROOT.glob("*.ulanziPlugin")),[PLUGIN]);self.assertTrue((PLUGIN/"manifest.json").is_file())
         installer=(ROOT/"Install-ImageSlidePlugin.ps1").read_text();self.assertIn("SupportsShouldProcess = $true",installer);self.assertNotIn("com.arkamax.ulanzi.bigbackground",installer);self.assertNotRegex(installer,r"(?i)Stop-Process|taskkill")
 
     def test_store_metadata_uses_supplied_artwork_and_declares_windows_only(self):
@@ -269,12 +271,12 @@ $restoreTemp=$manifest+'.restore';Copy-Item -LiteralPath $backup -Destination $r
         self.assertIn("windows",store["tags"])
         self.assertEqual(tool.PNG_DIMS((ROOT/store["cover"]).read_bytes()),(1672,941))
         self.assertEqual(tool.PNG_DIMS((ROOT/store["screenshots"][0]).read_bytes()),(2172,724))
-        manifest=json.loads((ROOT/"source"/"com.arkamax.ulanzi.imageslide.ulanziPlugin"/"manifest.json").read_text(encoding="utf-8"))
+        manifest=json.loads((PLUGIN/"manifest.json").read_text(encoding="utf-8"))
         self.assertEqual(manifest["OS"],[{"Platform":"windows","MinimumVersion":"10"}])
         self.assertIn("https://github.com/chilleno/claude-deck",(ROOT/"README.md").read_text(encoding="utf-8"))
 
     def test_every_generated_slideshow_assignment_hides_the_clock(self):
-        plugin=ROOT/"source"/"com.arkamax.ulanzi.imageslide.ulanziPlugin"
+        plugin=PLUGIN
         helper=(plugin/"helper"/"Invoke-ImageSlideSetup.ps1").read_text(encoding="utf-8")
         tool_source=(ROOT/"tools"/"profile_tool.py").read_text(encoding="utf-8")
         self.assertIn("ActionParam=[ordered]@{SmallViewMode=2}",helper)
@@ -288,7 +290,7 @@ $restoreTemp=$manifest+'.restore';Copy-Item -LiteralPath $backup -Destination $r
         plugin_root="com.arkamax.ulanzi.imageslide.ulanziPlugin"
         with zipfile.ZipFile(ROOT/(plugin_root+".zip")) as archive:
             self.assertIsNone(archive.testzip());names=archive.namelist();self.assertEqual({Path(n).parts[0] for n in names},{plugin_root})
-            manifest=json.loads(archive.read(plugin_root+"/manifest.json"));self.assertEqual(manifest["Version"],"0.3.0")
+            manifest=json.loads(archive.read(plugin_root+"/manifest.json"));self.assertEqual(manifest["Version"],"0.3.1")
             for name in names:
                 if not name.endswith("/"):self.assertNotIn(b"Get-FileHash",archive.read(name))
             for member in ("plugin/app.js","plugin/images.js","plugin/setup.js","property-inspector/inspector.html","property-inspector/setup.html","helper/Start-ImageSlideSetup.ps1","helper/Invoke-ImageSlideSetup.ps1","helper/compatibility.json","node_modules/sharp/dist/index.mjs","node_modules/@img/sharp-win32-x64/lib/sharp-win32-x64-0.35.4.node"):

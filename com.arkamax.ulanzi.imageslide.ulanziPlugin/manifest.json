@@ -4,7 +4,7 @@
   "Description": "Offline auto-fitting slideshow for the Ulanzi D200 center display.",
   "Overview": "Rotate local images on the D200 center display without replacing Ulanzi Studio.",
   "Author": "Arkamax",
-  "Version": "0.3.0",
+  "Version": "0.3.1",
   "Icon": "resources/icon.svg",
   "Category": "Arkamax",
   "CategoryIcon": "resources/category.svg",

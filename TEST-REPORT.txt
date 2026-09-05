@@ -1,4 +1,4 @@
-ImageSlidePlugin 0.3.0 verification
+ImageSlidePlugin 0.3.1 verification
 ===================================
 
 Node tests: PASS (23/23)
@@ -35,6 +35,7 @@ Windows PowerShell parser: PASS
 - helper/Invoke-ImageSlideSetup.ps1
 
 Package readback: PASS
+- Repository exposes exactly one root *.ulanziPlugin folder with manifest.json
 - Plugin ZIP has exactly one expected package root and two actions
 - Plugin ZIP includes Sharp 0.35.4, libvips 8.18.6, and the Windows x64 native binding
 - Source and helper ZIPs are healthy

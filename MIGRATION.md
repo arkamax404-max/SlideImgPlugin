@@ -32,3 +32,7 @@ A successful 0.1.9 Setup patch is a supported restore lineage. Install 0.2.0, re
 ## Updating 0.2.0 to 0.3.0
 
 Close Studio and reinstall the plugin package. Version 0.3.0 adds automatic centered-cover resizing for non-458 x 196 images and leaves originals untouched. Existing action UUIDs, settings, Setup backups, receipts, and restore lineage remain valid; any already prepared 0.2.0 request must be prepared again after upgrading.
+
+## Updating 0.3.0 to 0.3.1
+
+Version 0.3.1 keeps the same runtime behavior and normalizes the public repository layout for Community Store discovery. Reinstall only if you want installed metadata to report 0.3.1; action UUIDs, settings, backups, receipts, and restore lineage remain compatible.

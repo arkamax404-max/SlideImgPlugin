@@ -8,7 +8,7 @@ HEADER = b"#Version: 2\n"
 BUILTIN_ACTION = "com.ulanzi.ulanzideck.smallwindow.window"
 PLUGIN_UUID = "com.arkamax.ulanzi.imageslide"
 ACTION_UUID = PLUGIN_UUID + ".slideshow"
-PLUGIN_VERSION = "0.3.0"
+PLUGIN_VERSION = "0.3.1"
 PROFILE_RE = re.compile(r"(?:^|/)Profiles/([^/]+)/manifest\.json$")
 PACKAGE_RE = re.compile(r"^([^/]+)\.ulanziProfile/")
 
