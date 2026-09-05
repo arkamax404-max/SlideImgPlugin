@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 import { basename, join } from "node:path";
 
 export const SETUP_UUID="com.arkamax.ulanzi.imageslide.setup";
-export const PLUGIN_VERSION="0.2.0";
+export const PLUGIN_VERSION="0.3.0";
 const REQUEST_SCHEMA="com.arkamax.ulanzi.imageslide.setup-request/v5";
 const FAILURE_CODES=new Set([
   "PROFILE_NOT_FOUND","PROFILE_AMBIGUOUS","SETUP_INSTANCE_NOT_FOUND","PAGE_INVALID","SLOT_UNRELATED",
@@ -66,7 +66,7 @@ export class SetupService {
     const statuses={started:"launching",failed:"failed"};
     this.last={...this.persisted,status:statuses[this.persisted.status]||"failed"};return false;
   }
-  boundRequest(binding,requireFresh=true){
+  boundRequest(binding,requireFresh=true,requireCurrentVersion=true){
     try{
       const requestRoot=join(this.localAppData,"Arkamax","ImageSlidePlugin","requests");
       const pointer=JSON.parse(this.readText(join(requestRoot,"current.json")));
@@ -75,13 +75,14 @@ export class SetupService {
       const digest=sha256(requestJson);const sidecar=String(this.readText(join(requestRoot,`${pointer.file}.sha256`))).trim().toLowerCase();
       if(digest!==pointer.sha256||digest!==sidecar)return null;
       const request=JSON.parse(requestJson),expires=Date.parse(request.expiresUtc);
-      return request?.schema===REQUEST_SCHEMA&&request?.pluginVersion===PLUGIN_VERSION&&Number.isFinite(expires)&&(!requireFresh||expires>Date.now())&&request.setupKey===binding.key&&request.setupActionIdSha256===sha256(binding.actionid.toLowerCase())?request:null;
+      const supportedVersion=requireCurrentVersion?request?.pluginVersion===PLUGIN_VERSION:["0.2.0",PLUGIN_VERSION].includes(request?.pluginVersion);
+      return request?.schema===REQUEST_SCHEMA&&supportedVersion&&Number.isFinite(expires)&&(!requireFresh||expires>Date.now())&&request.setupKey===binding.key&&request.setupActionIdSha256===sha256(binding.actionid.toLowerCase())?request:null;
     }catch{return null}
   }
   validPreparedRequest(binding){return Boolean(this.boundRequest(binding,true))}
   liveTerminalStatus(binding){
     try{
-      const request=this.boundRequest(binding,false);if(!request||typeof request.manifestPath!=="string")return null;
+      const request=this.boundRequest(binding,false,false);if(!request||typeof request.manifestPath!=="string")return null;
       const document=JSON.parse(this.readText(request.manifestPath)),controllers=Array.isArray(document?.Controllers)?document.Controllers:[];
       const setup=controllers.filter((controller)=>controller?.Type==="Keypad"&&controller.Actions?.[binding.key]?.Action===SETUP_UUID&&sha256(String(controller.Actions[binding.key].ActionID||"").toLowerCase())===sha256(binding.actionid.toLowerCase()));
       const centers=controllers.filter((controller)=>controller?.Type==="Keypad"&&controller.Actions?.["3_2"]);

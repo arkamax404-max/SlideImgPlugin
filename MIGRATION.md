@@ -28,3 +28,7 @@ Close Studio and reinstall the 0.2.0 package. The UUIDs remain stable, but the p
 Version 0.2.0 also turns the same normal Setup key into a safe toggle. Only a slideshow assignment created by a successful Setup patch can be restored: the helper requires the exact cryptographically bound pre-patch backup and receipt. Imported profiles without that lineage remain fail-closed and must use their untouched exported original for rollback.
 
 A successful 0.1.9 Setup patch is a supported restore lineage. Install 0.2.0, return to the same active page and Setup key, and press Setup once to prepare the restore; a fresh 0.2.0 patch cycle is not required. The old receipt and backup must still be intact and the current manifest must match the recorded 0.1.9 post-patch hash.
+
+## Updating 0.2.0 to 0.3.0
+
+Close Studio and reinstall the plugin package. Version 0.3.0 adds automatic centered-cover resizing for non-458 x 196 images and leaves originals untouched. Existing action UUIDs, settings, Setup backups, receipts, and restore lineage remain valid; any already prepared 0.2.0 request must be prepared again after upgrading.

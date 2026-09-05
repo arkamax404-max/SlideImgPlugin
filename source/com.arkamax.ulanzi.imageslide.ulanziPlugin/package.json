@@ -1,6 +1,6 @@
 {
   "name": "arkamax-ulanzi-imageslide",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -11,6 +11,7 @@
     "node": ">=20.12.2"
   },
   "dependencies": {
+    "sharp": "0.35.4",
     "ws": "8.21.3"
   }
 }

@@ -1,10 +1,12 @@
 import { createHash } from "node:crypto";
 import { readFileSync, statSync } from "node:fs";
 import { extname } from "node:path";
+import sharp from "sharp";
 
 export const WIDTH = 458;
 export const HEIGHT = 196;
 const MIME = new Map([[".png", "image/png"], [".jpg", "image/jpeg"], [".jpeg", "image/jpeg"], [".svg", "image/svg+xml"]]);
+const MAX_INPUT_PIXELS = 40_000_000;
 
 export function pngDimensions(buffer) {
   const sig = Buffer.from([137,80,78,71,13,10,26,10]);
@@ -43,7 +45,7 @@ export function svgDimensions(buffer) {
   throw new Error("SVG dimensions not found");
 }
 
-export function loadSlide(file) {
+export async function loadSlide(file) {
   const extension = extname(file).toLowerCase();
   const mime = MIME.get(extension);
   if (!mime) throw new Error("Unsupported image type");
@@ -51,7 +53,12 @@ export function loadSlide(file) {
   if (!info.isFile() || info.size === 0 || info.size > 8 * 1024 * 1024) throw new Error("Image must be a non-empty file no larger than 8 MiB");
   const buffer = readFileSync(file);
   const dimensions = extension === ".png" ? pngDimensions(buffer) : (extension === ".jpg" || extension === ".jpeg") ? jpegDimensions(buffer) : svgDimensions(buffer);
-  if (dimensions.width !== WIDTH || dimensions.height !== HEIGHT) throw new Error(`Image must be exactly ${WIDTH}x${HEIGHT}`);
+  if (!Number.isFinite(dimensions.width) || !Number.isFinite(dimensions.height) || dimensions.width <= 0 || dimensions.height <= 0 || dimensions.width * dimensions.height > MAX_INPUT_PIXELS) throw new Error("Image dimensions are unsafe");
+  const resized = dimensions.width !== WIDTH || dimensions.height !== HEIGHT;
+  const output = resized
+    ? await sharp(buffer, { limitInputPixels: MAX_INPUT_PIXELS, failOn: "warning" }).rotate().resize(WIDTH, HEIGHT, { fit: "cover", position: "centre" }).png({ compressionLevel: 9 }).toBuffer()
+    : buffer;
+  const outputMime = resized ? "image/png" : mime;
   const signature = createHash("sha256").update(buffer).digest("hex");
-  return { name: file.split(/[\\/]/).pop(), dataUri: `data:${mime};base64,${buffer.toString("base64")}`, signature, modifiedMs: info.mtimeMs };
+  return { name: file.split(/[\\/]/).pop(), dataUri: `data:${outputMime};base64,${output.toString("base64")}`, signature, modifiedMs: info.mtimeMs, resized };
 }

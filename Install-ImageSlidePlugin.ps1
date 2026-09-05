@@ -33,7 +33,7 @@ $ExpectedPluginUuid = 'com.arkamax.ulanzi.imageslide'
 $ExpectedActionUuid = 'com.arkamax.ulanzi.imageslide.slideshow'
 $ExpectedSetupUuid = 'com.arkamax.ulanzi.imageslide.setup'
 $ExpectedCodePath = 'plugin/app.js'
-$ExpectedPluginVersion = '0.2.0'
+$ExpectedPluginVersion = '0.3.0'
 
 function Get-NormalizedPath {
     param([Parameter(Mandatory = $true)][string]$Path)
@@ -122,7 +122,7 @@ function Assert-ZipEntriesSafe {
 function Assert-PluginContent {
     param([Parameter(Mandatory = $true)][string]$Root)
     $rootPath = Assert-PathUnderRoot -Path $Root -Root (Split-Path -Parent $Root)
-    foreach ($relative in @('manifest.json', 'config.json', 'plugin/app.js', 'plugin/slideshow.js', 'plugin/setup.js', 'plugin/protocol-client.js', 'property-inspector/inspector.html', 'property-inspector/inspector.js', 'property-inspector/setup.html', 'property-inspector/setup-inspector.js', 'helper/Start-ImageSlideSetup.ps1', 'helper/Invoke-ImageSlideSetup.ps1', 'helper/Apply-ImageSlideSetup.cmd', 'helper/compatibility.json', 'node_modules/ws/index.js')) {
+    foreach ($relative in @('manifest.json', 'config.json', 'plugin/app.js', 'plugin/slideshow.js', 'plugin/setup.js', 'plugin/protocol-client.js', 'property-inspector/inspector.html', 'property-inspector/inspector.js', 'property-inspector/setup.html', 'property-inspector/setup-inspector.js', 'helper/Start-ImageSlideSetup.ps1', 'helper/Invoke-ImageSlideSetup.ps1', 'helper/Apply-ImageSlideSetup.cmd', 'helper/compatibility.json', 'node_modules/sharp/dist/index.mjs', 'node_modules/@img/sharp-win32-x64/lib/sharp-win32-x64-0.35.4.node', 'node_modules/ws/index.js')) {
         $essential = Assert-PathUnderRoot -Path (Join-Path $rootPath $relative.Replace('/', '\')) -Root $rootPath
         if (-not (Test-Path -LiteralPath $essential -PathType Leaf)) { throw "Missing essential plugin file: $relative" }
     }

@@ -6,7 +6,7 @@ import { SetupService } from "./setup.js";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const client = new UlanziProtocolClient();
-const service = new SlideshowService({ client, configuration: loadConfiguration(root) });
+const service = new SlideshowService({ client, configuration: await loadConfiguration(root) });
 const setup = new SetupService({ client, root });
 service.bind();
 setup.bind();

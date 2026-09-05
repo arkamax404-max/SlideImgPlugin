@@ -10,8 +10,8 @@ export const WATCH_DEBOUNCE_MS = 350;
 const IMAGE_EXTENSIONS = new Set([".png", ".jpg", ".jpeg", ".svg"]);
 const TEMP_SUFFIXES = [".tmp", ".temp", ".part", ".crdownload", ".download"];
 
-export function loadConfiguration(root) {
-  const slides = ["sample-blue.svg", "sample-sunset.svg"].map((name) => loadSlide(join(root, "slides", name)));
+export async function loadConfiguration(root) {
+  const slides = await Promise.all(["sample-blue.svg", "sample-sunset.svg"].map((name) => loadSlide(join(root, "slides", name))));
   return { defaults: { folderPath: "", intervalSeconds: 10, loop: true, sort: "name" }, fallbackSlides: slides };
 }
 
@@ -35,7 +35,7 @@ export function eligibleName(name) {
   return dot >= 0 && IMAGE_EXTENSIONS.has(lower.slice(dot));
 }
 
-export function enumerateFolder(folderPath, sort = "name", fsApi = { lstatSync, readdirSync }) {
+export async function enumerateFolder(folderPath, sort = "name", fsApi = { lstatSync, readdirSync }, cache = new Map(), imageLoader = loadSlide) {
   if (!folderPath || !isAbsolute(folderPath)) throw new Error("Select an absolute folder path.");
   const rootInfo = fsApi.lstatSync(folderPath);
   if (!rootInfo.isDirectory() || rootInfo.isSymbolicLink()) throw new Error("Selected path must be a real directory, not a link.");
@@ -46,21 +46,23 @@ export function enumerateFolder(folderPath, sort = "name", fsApi = { lstatSync, 
     try {
       const info = fsApi.lstatSync(file);
       if (!info.isFile() || info.isSymbolicLink()) continue;
-      candidates.push({ file, name: entry.name, modifiedMs: info.mtimeMs });
+      candidates.push({ file, name: entry.name, modifiedMs: info.mtimeMs, size: info.size });
     } catch { /* A file can disappear during an atomic replace; the next rescan will see it. */ }
   }
   candidates.sort((a, b) => sort === "date"
     ? (b.modifiedMs - a.modifiedMs || compareNames(a.name, b.name))
     : compareNames(a.name, b.name));
-  const slides = [], signatures = new Set(), errors = [];
+  const slides = [], signatures = new Set(), errors = [], cacheKeys = new Set();
   for (const item of candidates) {
+    const cacheKey=`${item.file}\0${item.size}\0${item.modifiedMs}`;cacheKeys.add(cacheKey);
     try {
-      const slide = loadSlide(item.file);
+      let slide;if(cache.has(cacheKey))slide=cache.get(cacheKey);else{slide=await imageLoader(item.file);cache.set(cacheKey,slide)}
+      if(!slide)throw new Error("Cached image rejection");
       if (signatures.has(slide.signature)) continue;
       signatures.add(slide.signature); slides.push(slide);
-    } catch { errors.push(item.name); }
+    } catch { cache.set(cacheKey,null);errors.push(item.name); }
   }
-  return { slides, rejected: errors.length };
+  return { slides, rejected: errors.length, resized: slides.filter((slide) => slide.resized).length, cacheKeys };
 }
 
 function compareNames(a, b) {
@@ -74,7 +76,7 @@ export class SlideshowService {
     this.settings={...this.defaults}; this.slides=this.fallbackSlides; this.status={level:"ready",message:"Using included sample slides.",count:this.slides.length};
     this.timerApi=timerApi; this.now=now; this.fsApi=fsApi; this.watchFactory=watchFactory; this.logger=logger;
     this.contexts=new Map(); this.activeContexts=new Set(); this.inspectors=new Set(); this.lastSignature=new Map();
-    this.index=0; this.timer=null; this.watcher=null; this.watchDebounce=null; this.nextSlideAt=0; this.nextRescanAt=0; this.settingsRequested=false;
+    this.index=0; this.timer=null; this.watcher=null; this.watchDebounce=null; this.nextSlideAt=0; this.nextRescanAt=0; this.settingsRequested=false; this.scanGeneration=0; this.slideCache=new Map();
   }
   bind() {
     this.client.onAdd((e)=>this.add(e)); this.client.onSetActive((e)=>this.setActive(e)); this.client.onSetactive?.((e)=>this.setActive(e));
@@ -105,37 +107,41 @@ export class SlideshowService {
     for (const context of contexts||[]) { this.activeContexts.delete(context); this.contexts.delete(context); this.inspectors.delete(context); this.lastSignature.delete(context); }
     if (this.activeContexts.size===0) this.stopRuntime();
   }
-  receiveSettings(event) {
-    try { this.applySettings(normalizeSettings(event?.settings, this.defaults), true); }
+  async receiveSettings(event) {
+    try { await this.applySettings(normalizeSettings(event?.settings, this.defaults), true); }
     catch (error) { this.setStatus("error", error.message, 0); }
   }
-  fromInspector(event) {
+  async fromInspector(event) {
     const context=event?.context; if (!this.accepted(event) && !this.contexts.has(context)) return;
     this.inspectors.add(context); const payload=event?.payload||{};
     if (payload.type==="requestState") { this.sendStatus(context); return; }
-    if (payload.type==="refresh") { this.rescan(true); return; }
+    if (payload.type==="refresh") { await this.rescan(true); return; }
     if (payload.type!=="updateSettings") return;
     try {
-      const settings=normalizeSettings(payload.settings,this.settings); this.client.setGlobalSettings?.(settings,context); this.applySettings(settings,true);
+      const settings=normalizeSettings(payload.settings,this.settings); this.client.setGlobalSettings?.(settings,context); await this.applySettings(settings,true);
     } catch (error) { this.setStatus("error",error.message,0); }
   }
-  applySettings(settings, renderNow) {
+  async applySettings(settings, renderNow) {
     const folderChanged=settings.folderPath!==this.settings.folderPath || settings.sort!==this.settings.sort;
     this.settings=settings; this.nextSlideAt=this.now()+settings.intervalSeconds*1000;
-    if (folderChanged) { this.index=0; this.stopWatcher(); }
-    this.rescan(renderNow); this.ensureRuntime(); this.broadcastStatus();
+    if (folderChanged) { this.index=0; this.stopWatcher(); this.slideCache.clear(); }
+    await this.rescan(renderNow); this.ensureRuntime(); this.broadcastStatus();
   }
-  rescan(renderNow=false) {
+  async rescan(renderNow=false) {
+    const generation=++this.scanGeneration;
     this.nextRescanAt=this.now()+RESCAN_INTERVAL_MS;
     if (!this.settings.folderPath) { this.useFallback("Using included sample slides.",renderNow); return; }
     try {
-      const result=enumerateFolder(this.settings.folderPath,this.settings.sort,this.fsApi||undefined);
-      if (!result.slides.length) { this.useFallback(result.rejected ? "No valid 458x196 images; using sample slides." : "Folder is empty; using sample slides.",renderNow); return; }
+      const result=await enumerateFolder(this.settings.folderPath,this.settings.sort,this.fsApi||undefined,this.slideCache);
+      if(generation!==this.scanGeneration)return;
+      for(const key of this.slideCache.keys())if(!result.cacheKeys.has(key))this.slideCache.delete(key);
+      if (!result.slides.length) { this.useFallback(result.rejected ? "No supported images; using sample slides." : "Folder is empty; using sample slides.",renderNow); return; }
       const current=this.slides[this.index]?.signature; this.slides=result.slides;
       const retained=this.slides.findIndex((slide)=>slide.signature===current); this.index=retained>=0?retained:0;
-      this.setStatus(result.rejected?"warning":"ready",result.rejected?`${result.slides.length} image(s) loaded; ${result.rejected} rejected.`:`${result.slides.length} image(s) loaded.`,result.slides.length);
+      const details=[`${result.slides.length} image(s) loaded`,result.resized?`${result.resized} resized with centered cover`:"",result.rejected?`${result.rejected} rejected`:""].filter(Boolean).join("; ")+".";
+      this.setStatus(result.rejected?"warning":"ready",details,result.slides.length);
       this.ensureWatcher(); if (renderNow) this.renderAll(false);
-    } catch { this.useFallback("Folder unavailable; using sample slides.",renderNow,"error"); }
+    } catch { if(generation===this.scanGeneration)this.useFallback("Folder unavailable; using sample slides.",renderNow,"error"); }
   }
   useFallback(message,renderNow,level="warning") { this.slides=this.fallbackSlides; this.index=Math.min(this.index,this.slides.length-1); this.setStatus(level,message,this.slides.length); this.stopWatcher(); if(renderNow)this.renderAll(false); }
   setStatus(level,message,count) { this.status={level,message,count}; this.broadcastStatus(); this.log(`status-${level}`); }
@@ -150,9 +156,9 @@ export class SlideshowService {
     catch { this.log("render-error"); }
   }
   renderAll(force=false) { for(const context of this.activeContexts)this.render(context,force); }
-  tick() {
+  async tick() {
     const time=this.now();
-    if(time>=this.nextRescanAt)this.rescan(false);
+    if(time>=this.nextRescanAt)await this.rescan(false);
     if(time<this.nextSlideAt)return;
     this.nextSlideAt=time+this.settings.intervalSeconds*1000;
     const last=this.slides.length-1;
@@ -163,7 +169,7 @@ export class SlideshowService {
     if(this.activeContexts.size===0)return; this.ensureWatcher();
     if(!this.nextRescanAt)this.nextRescanAt=this.now()+RESCAN_INTERVAL_MS;
     if(!this.nextSlideAt)this.nextSlideAt=this.now()+this.settings.intervalSeconds*1000;
-    if(!this.timer)this.timer=this.timerApi.setInterval(()=>this.tick(),1000);
+    if(!this.timer)this.timer=this.timerApi.setInterval(()=>void this.tick(),1000);
   }
   ensureWatcher() {
     if(this.watcher||!this.settings.folderPath||this.status.count===0||this.slides===this.fallbackSlides)return;
@@ -172,10 +178,10 @@ export class SlideshowService {
   }
   queueRescan() {
     if(this.watchDebounce)this.timerApi.clearTimeout(this.watchDebounce);
-    this.watchDebounce=this.timerApi.setTimeout(()=>{this.watchDebounce=null;this.rescan(true);},WATCH_DEBOUNCE_MS);
+    this.watchDebounce=this.timerApi.setTimeout(async()=>{this.watchDebounce=null;await this.rescan(true);},WATCH_DEBOUNCE_MS);
   }
   stopWatcher() { try{this.watcher?.close();}catch{} this.watcher=null; if(this.watchDebounce)this.timerApi.clearTimeout(this.watchDebounce); this.watchDebounce=null; }
-  stopRuntime() { if(this.timer)this.timerApi.clearInterval(this.timer); this.timer=null; this.nextSlideAt=0; this.nextRescanAt=0; this.stopWatcher(); }
-  close() { this.stopRuntime(); this.activeContexts.clear(); this.contexts.clear(); this.inspectors.clear(); this.lastSignature.clear(); }
+  stopRuntime() { this.scanGeneration++; if(this.timer)this.timerApi.clearInterval(this.timer); this.timer=null; this.nextSlideAt=0; this.nextRescanAt=0; this.stopWatcher(); }
+  close() { this.stopRuntime(); this.activeContexts.clear(); this.contexts.clear(); this.inspectors.clear(); this.lastSignature.clear(); this.slideCache.clear(); }
   log(event,slide="") { const safe=/^[A-Za-z0-9._-]{1,128}$/.test(slide)?slide:""; this.logger(`[imageslide] ${JSON.stringify({event,slide:safe,active:this.activeContexts.size})}`); }
 }

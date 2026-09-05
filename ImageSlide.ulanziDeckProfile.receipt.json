@@ -1,7 +1,7 @@
 {
   "schema": "com.arkamax.ulanzi.imageslide.profile-clone-patch/v2",
   "input_sha256": "244c8fb42325e9c196e3d14b3acafdfe67eb392722df43094b1b26019e2704e1",
-  "output_sha256": "1911a0917386f03e2b522328f06d5e7dedab8dfc62e961612e256a23afe352f8",
+  "output_sha256": "147212989c863823de53c60a7c8a99c72633cceb0a5ef526183bed5c0f74aa32",
   "source_package_id": "9653df21-1b4a-4ba9-aefa-a8e28118b205",
   "clone_package_id": "fef9a688-f8d2-4bc0-a60d-302ff7ac3041",
   "source_name": "Arkamax",
@@ -53,7 +53,7 @@
       "Plugin": {
         "Name": "Image Slideshow",
         "UUID": "com.arkamax.ulanzi.imageslide",
-        "Version": "0.2.0"
+        "Version": "0.3.0"
       },
       "State": 0,
       "ViewParam": [

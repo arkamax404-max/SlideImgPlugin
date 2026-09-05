@@ -2,7 +2,7 @@
 
 ImageSlidePlugin keeps Ulanzi Studio and its plugins intact. It installs **Image Slideshow**, imports an independently identified profile clone, and lets you choose an external image folder from the Property Inspector.
 
-Version **0.2.0** makes the normal Setup key reversible: it installs or repairs Image Slideshow on the large display, then can restore the exact verified pre-patch bytes. Both directions retain the Windows PowerShell 5.1 atomic replacement, target binding, versioned request, backup, receipt, and rollback gates.
+Version **0.3.0** automatically center-crops images of other sizes to 458 x 196 in memory while leaving the original files untouched. It also keeps the normal Setup key reversible: it installs or repairs Image Slideshow on the large display, then can restore the exact verified pre-patch bytes.
 
 An existing successful **0.1.9** Setup patch does not need to be patched again. Select **Restore original** before pressing Setup; 0.2.0 accepts that version's verified `apply-or-repair` receipt and backup, binds them into a new restore request, and restores the exact pre-0.1.9 bytes after Studio closes. Missing, ambiguous, changed, or tampered lineage fails closed.
 
@@ -26,13 +26,14 @@ The Property Inspector provides **Select folder**, interval, loop, alphabetical/
 
 | Rule | Behavior |
 |---|---|
-| Size | Exactly 458 × 196 px |
+| Size | Exact 458 × 196 files pass through; other sizes up to 40 MP use centered cover resizing |
 | Types | PNG, JPG/JPEG, SVG |
 | File limit | 8 MiB each |
 | Scope | Top-level files only |
 | Excluded | Links, subfolders, hidden/dot files, temporary downloads, incomplete or invalid files |
 | Change detection | Debounced watcher plus five-second rescan |
 | Duplicates | Same SHA-256 content is shown once |
+| Original files | Never modified; resized output exists only in memory |
 | Failure | Two bundled sample slides remain available |
 
 The plugin never writes to the selected folder and never logs its full path.
@@ -91,11 +92,15 @@ The state machine has only three outcomes: built-in small-window → patch, Imag
 
 For a failed Setup apply, the helper attempts automatic byte-for-byte restoration from its verified backup. Preserve its backup directory and receipt if manual investigation is needed.
 
+## Acknowledgements
+
+Special thanks to the author of [chilleno/claude-deck](https://github.com/chilleno/claude-deck) for publicly documenting the profile technique that made safe use of the Ulanzi D200 large display possible. ImageSlidePlugin adapts that discovery to Windows with strict target validation, backups, atomic replacement, readback, rollback, and restore controls.
+
 ## Design evidence and limitations
 
 - Studio 3.2.11 uses protocol 2.1.2 `setBaseDataIcon`; this package does not use the newer `setImage` API.
 - Official Ulanzi Property Inspector contract: `selectFolderDialog()` returns through `onSelectdialog(message.path)`; global settings use `settings`, and PI pass-through uses `payload`.
 - The private `3_2` patch follows the active device/profile/page resolution shape demonstrated by [chilleno/claude-deck](https://github.com/chilleno/claude-deck/blob/main/apply-bigkey.sh), adapted to Windows with strict compatibility, backup, atomic replacement, and rollback gates.
-- The earlier manual Setup/Apply flow was physically validated on 0.1.9 after correcting the PowerShell 5.1 `File.Replace` backup path. The detached 0.2.0 assistant retains that verified write path; its automatic wait/apply/relaunch lifecycle still requires physical acceptance.
+- The earlier manual Setup/Apply flow was physically validated on 0.1.9 after correcting the PowerShell 5.1 `File.Replace` backup path. The detached assistant retains that verified write path and its automatic wait/apply/relaunch lifecycle is physically validated.
 
 Primary SDK references: [UlanziDeckPlugin-SDK](https://github.com/UlanziTechnology/UlanziDeckPlugin-SDK), [plugin-common-html](https://github.com/UlanziTechnology/plugin-common-html).

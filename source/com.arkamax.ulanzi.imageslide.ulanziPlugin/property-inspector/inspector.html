@@ -9,7 +9,7 @@
   </style>
 </head>
 <body>
-  <div class="row"><label for="folder">Image folder</label><input id="folder" readonly placeholder="Included sample slides"><button id="select" type="button">Select folder</button><div class="hint">Top-level PNG, JPG, JPEG, or SVG files; exactly 458 × 196 px.</div></div>
+  <div class="row"><label for="folder">Image folder</label><input id="folder" readonly placeholder="Included sample slides"><button id="select" type="button">Select folder</button><div class="hint">Top-level PNG, JPG, JPEG, or SVG files. Other sizes are center-cropped to 458 × 196 in memory; originals are unchanged.</div></div>
   <div class="row inline"><div><label for="interval">Interval (seconds)</label><input id="interval" type="number" min="5" max="86400" step="1" value="10"></div><div><label for="sort">Order</label><select id="sort"><option value="name">Alphabetical</option><option value="date">Modified date (newest first)</option></select></div></div>
   <div class="row check"><input id="loop" type="checkbox" checked><label for="loop">Loop slideshow</label></div>
   <div class="row"><div id="status" class="status ready">Connecting…</div></div>

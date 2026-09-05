@@ -1,10 +1,10 @@
 {
   "UUID": "com.arkamax.ulanzi.imageslide",
   "Name": "Image Slideshow",
-  "Description": "Offline slideshow for the Ulanzi D200 458 x 196 center display.",
+  "Description": "Offline auto-fitting slideshow for the Ulanzi D200 center display.",
   "Overview": "Rotate local images on the D200 center display without replacing Ulanzi Studio.",
   "Author": "Arkamax",
-  "Version": "0.2.0",
+  "Version": "0.3.0",
   "Icon": "resources/icon.svg",
   "Category": "Arkamax",
   "CategoryIcon": "resources/category.svg",
@@ -15,7 +15,7 @@
   "Actions": [
     {
       "Name": "Image Slideshow",
-      "Tooltip": "Rotate local 458 x 196 images on the D200 center display.",
+      "Tooltip": "Auto-fit and rotate local images on the D200 center display.",
       "Icon": "resources/action.svg",
       "UUID": "com.arkamax.ulanzi.imageslide.slideshow",
       "PropertyInspectorPath": "property-inspector/inspector.html",

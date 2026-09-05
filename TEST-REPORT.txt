@@ -1,21 +1,24 @@
-ImageSlidePlugin 0.2.0 verification
+ImageSlidePlugin 0.3.0 verification
 ===================================
 
 Node tests: PASS (23/23)
 - Protocol 2.1.2 state/global-settings/Property Inspector frames
 - Slideshow settings, path filters, dimensions, size, ordering, hash dedupe and fallback
 - Watcher debounce, periodic rescan, atomic rename and active-only lifecycle
+- Automatic centered-cover resize, 40 MP input bound and unchanged exact-size pass-through
+- Resize cache keyed by path, size and modification time
 - Setup action routing, independent Start-Process bootstrap, operation persistence and PI status polling
 - Terminal status requires a current v5 request and live center-action verification
 - Versioned PREPARED validation and stale-request refusal
 - Restore-specific codes and phases remain allowlisted and path-free
 
-Python tests: PASS (28/28)
+Python tests: PASS (29/29)
 - Independent profile clone and complete identity separation
 - Delivered profile/receipt/action metadata and package inventory
 - Pinned Studio compatibility, direct SHA-256, schema refusal and atomic rollback gates
 - Setup state machine selects patch for built-in, restore for ImageSlide, and refusal for unrelated actions
 - Every generated Image Slideshow large-display assignment persists SmallViewMode 2
+- Store metadata references the supplied cover/banner artwork and matches Windows-only manifest support
 - Restore requires one cryptographically target-bound successful patch receipt and exact pre-patch backup
 - Missing receipt, tampered backup, target mismatch, ambiguous valid lineages, and tampered requested receipt refuse safely
 - Replayed/opposite-state requests fail through operation/current-state mismatch
@@ -33,9 +36,14 @@ Windows PowerShell parser: PASS
 
 Package readback: PASS
 - Plugin ZIP has exactly one expected package root and two actions
+- Plugin ZIP includes Sharp 0.35.4, libvips 8.18.6, and the Windows x64 native binding
 - Source and helper ZIPs are healthy
 - Profile Version 2 header/ZIP/receipt/action metadata are coherent
 - SHA256SUMS entries match delivered bytes
+
+Ulanzi Node runtime harness: PASS
+- Ulanzi bundled Node 20.12.2 loaded Sharp from the extracted release ZIP
+- Centered-cover resize produced a 458x196 PNG
 
 Live AppData setup/restore test: NOT RUN by design.
 Physical detached-assistant lifecycle: NOT RUN; install and restore must each succeed physically before the automatic workflow is considered confirmed.

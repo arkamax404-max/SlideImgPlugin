@@ -64,7 +64,7 @@ class DeliveryTests(unittest.TestCase):
     def test_delivered_profile_receipt_and_action_metadata(self):
         profile=ROOT/"ImageSlide.ulanziDeckProfile";receipt=json.loads(Path(str(profile)+".receipt.json").read_text(encoding="utf-8"));data=profile.read_bytes();self.assertEqual(receipt["output_sha256"],hashlib.sha256(data).hexdigest())
         _,z=tool.read_archive(profile);entry=json.loads(z.read(receipt["manifest_member"]))["Controllers"][receipt["controller_index"]]["Actions"]["3_2"]
-        self.assertEqual(entry["Action"],"com.arkamax.ulanzi.imageslide.slideshow");self.assertEqual(entry["Plugin"],{"Name":"Image Slideshow","UUID":"com.arkamax.ulanzi.imageslide","Version":"0.2.0"})
+        self.assertEqual(entry["Action"],"com.arkamax.ulanzi.imageslide.slideshow");self.assertEqual(entry["Plugin"],{"Name":"Image Slideshow","UUID":"com.arkamax.ulanzi.imageslide","Version":"0.3.0"})
 
     def test_helper_is_pinned_fail_closed_two_stage_and_atomic(self):
         plugin=ROOT/"source"/"com.arkamax.ulanzi.imageslide.ulanziPlugin";helper=(plugin/"helper"/"Invoke-ImageSlideSetup.ps1").read_text(encoding="utf-8");compat=json.loads((plugin/"helper"/"compatibility.json").read_text())
@@ -101,7 +101,7 @@ class DeliveryTests(unittest.TestCase):
 $manifest='{quoted(manifest)}';$backup='{quoted(root/"replace-backup.json")}'
 $before=[IO.File]::ReadAllBytes($manifest);$doc=Get-Content -LiteralPath $manifest -Raw -Encoding UTF8|ConvertFrom-Json
 $pads=@($doc.Controllers|Where-Object{{$_.Type-eq'Keypad'-and$null-ne$_.Actions.PSObject.Properties['3_2']}});if($pads.Count-ne1){{throw 'shape'}}
-$entry=[ordered]@{{Action='com.arkamax.ulanzi.imageslide.slideshow';ActionID=[guid]::NewGuid().ToString();ActionParam=[ordered]@{{SmallViewMode=2}};LinkedTitle=$true;Name='Image Slideshow';Plugin=[ordered]@{{Name='Image Slideshow';UUID='com.arkamax.ulanzi.imageslide';Version='0.2.0'}};State=0;ViewParam=@([ordered]@{{Icon='';IconRel='';Name='Image Slideshow'}})}}
+$entry=[ordered]@{{Action='com.arkamax.ulanzi.imageslide.slideshow';ActionID=[guid]::NewGuid().ToString();ActionParam=[ordered]@{{SmallViewMode=2}};LinkedTitle=$true;Name='Image Slideshow';Plugin=[ordered]@{{Name='Image Slideshow';UUID='com.arkamax.ulanzi.imageslide';Version='0.3.0'}};State=0;ViewParam=@([ordered]@{{Icon='';IconRel='';Name='Image Slideshow'}})}}
 $pads[0].Actions|Add-Member -NotePropertyName '3_2' -NotePropertyValue $entry -Force;$temp=$manifest+'.tmp';[IO.File]::WriteAllText($temp,($doc|ConvertTo-Json -Depth 30),(New-Object Text.UTF8Encoding($false)))
 $check=Get-Content -LiteralPath $temp -Raw -Encoding UTF8|ConvertFrom-Json;if($check.Controllers[1].Actions.'3_2'.Action-ne'com.arkamax.ulanzi.imageslide.slideshow'){{throw 'temp-readback'}}
 [IO.File]::Replace($temp,$manifest,$backup);$after=Get-Content -LiteralPath $manifest -Raw -Encoding UTF8|ConvertFrom-Json;$patched=[IO.File]::ReadAllBytes($manifest)
@@ -260,6 +260,19 @@ $restoreTemp=$manifest+'.restore';Copy-Item -LiteralPath $backup -Destination $r
         plugin=ROOT/"source"/"com.arkamax.ulanzi.imageslide.ulanziPlugin";manifest=json.loads((plugin/"manifest.json").read_text());self.assertEqual(manifest["UUID"],"com.arkamax.ulanzi.imageslide");self.assertEqual([a["UUID"] for a in manifest["Actions"]],["com.arkamax.ulanzi.imageslide.slideshow","com.arkamax.ulanzi.imageslide.setup"])
         installer=(ROOT/"Install-ImageSlidePlugin.ps1").read_text();self.assertIn("SupportsShouldProcess = $true",installer);self.assertNotIn("com.arkamax.ulanzi.bigbackground",installer);self.assertNotRegex(installer,r"(?i)Stop-Process|taskkill")
 
+    def test_store_metadata_uses_supplied_artwork_and_declares_windows_only(self):
+        store=json.loads((ROOT/"store.json").read_text(encoding="utf-8"))
+        self.assertEqual(store["cover"],"assets/cover.png")
+        self.assertEqual(store["screenshots"],["assets/banner.png"])
+        self.assertIn("Windows only",store["longDescription"])
+        self.assertIn("https://github.com/chilleno/claude-deck",store["longDescription"])
+        self.assertIn("windows",store["tags"])
+        self.assertEqual(tool.PNG_DIMS((ROOT/store["cover"]).read_bytes()),(1672,941))
+        self.assertEqual(tool.PNG_DIMS((ROOT/store["screenshots"][0]).read_bytes()),(2172,724))
+        manifest=json.loads((ROOT/"source"/"com.arkamax.ulanzi.imageslide.ulanziPlugin"/"manifest.json").read_text(encoding="utf-8"))
+        self.assertEqual(manifest["OS"],[{"Platform":"windows","MinimumVersion":"10"}])
+        self.assertIn("https://github.com/chilleno/claude-deck",(ROOT/"README.md").read_text(encoding="utf-8"))
+
     def test_every_generated_slideshow_assignment_hides_the_clock(self):
         plugin=ROOT/"source"/"com.arkamax.ulanzi.imageslide.ulanziPlugin"
         helper=(plugin/"helper"/"Invoke-ImageSlideSetup.ps1").read_text(encoding="utf-8")
@@ -275,10 +288,10 @@ $restoreTemp=$manifest+'.restore';Copy-Item -LiteralPath $backup -Destination $r
         plugin_root="com.arkamax.ulanzi.imageslide.ulanziPlugin"
         with zipfile.ZipFile(ROOT/(plugin_root+".zip")) as archive:
             self.assertIsNone(archive.testzip());names=archive.namelist();self.assertEqual({Path(n).parts[0] for n in names},{plugin_root})
-            manifest=json.loads(archive.read(plugin_root+"/manifest.json"));self.assertEqual(manifest["Version"],"0.2.0")
+            manifest=json.loads(archive.read(plugin_root+"/manifest.json"));self.assertEqual(manifest["Version"],"0.3.0")
             for name in names:
                 if not name.endswith("/"):self.assertNotIn(b"Get-FileHash",archive.read(name))
-            for member in ("plugin/app.js","plugin/setup.js","property-inspector/inspector.html","property-inspector/setup.html","helper/Start-ImageSlideSetup.ps1","helper/Invoke-ImageSlideSetup.ps1","helper/compatibility.json"):
+            for member in ("plugin/app.js","plugin/images.js","plugin/setup.js","property-inspector/inspector.html","property-inspector/setup.html","helper/Start-ImageSlideSetup.ps1","helper/Invoke-ImageSlideSetup.ps1","helper/compatibility.json","node_modules/sharp/dist/index.mjs","node_modules/@img/sharp-win32-x64/lib/sharp-win32-x64-0.35.4.node"):
                 self.assertIn(plugin_root+"/"+member,names)
         for name in ("ImageSlidePlugin-source.zip","ImageSlideSetupHelper.zip"):
             with zipfile.ZipFile(ROOT/name) as archive:self.assertIsNone(archive.testzip())
