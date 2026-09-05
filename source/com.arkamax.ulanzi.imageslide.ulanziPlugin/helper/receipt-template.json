@@ -1,0 +1,12 @@
+{
+  "schema": "com.arkamax.ulanzi.imageslide.setup-receipt/v1",
+  "operation": "patch|restore",
+  "result": "success|restored",
+  "studio": {"fileVersion": "", "sha256": ""},
+  "target": {"store": "", "groupId": "", "pageId": "", "key": "3_2"},
+  "beforeSha256": "",
+  "afterSha256": "",
+  "backupSha256": "",
+  "action": "com.arkamax.ulanzi.imageslide.slideshow",
+  "timestampUtc": ""
+}

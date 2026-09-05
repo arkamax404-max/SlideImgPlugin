@@ -1,0 +1,8 @@
+{
+  "intervalSeconds": 10,
+  "loop": true,
+  "order": [
+    "sample-blue.svg",
+    "sample-sunset.svg"
+  ]
+}

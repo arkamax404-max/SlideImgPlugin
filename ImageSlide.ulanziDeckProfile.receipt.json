@@ -1,0 +1,84 @@
+{
+  "schema": "com.arkamax.ulanzi.imageslide.profile-clone-patch/v2",
+  "input_sha256": "244c8fb42325e9c196e3d14b3acafdfe67eb392722df43094b1b26019e2704e1",
+  "output_sha256": "1911a0917386f03e2b522328f06d5e7dedab8dfc62e961612e256a23afe352f8",
+  "source_package_id": "9653df21-1b4a-4ba9-aefa-a8e28118b205",
+  "clone_package_id": "fef9a688-f8d2-4bc0-a60d-302ff7ac3041",
+  "source_name": "Arkamax",
+  "clone_name": "Image Slideshow",
+  "source_profile_id": "a8eace19-3a71-47a9-ae9e-5e1bfc1c13c8",
+  "clone_profile_id": "7e750485-c66b-41f2-97e8-62693c1b2783",
+  "profile_id_map": {
+    "0517c52e-ebea-459a-97eb-c75697f56696": "69ec03ce-44d3-49db-a194-e9dc89d324c0",
+    "53949ac6-658c-43b5-bcbc-1cad2e567c9f": "3aff00d6-4947-423d-8442-0e0df3ebb1df",
+    "6795ed5c-e5f9-4923-80f9-066e48901ed9": "e48f48d3-5b8b-4cdf-9f3a-af718d66ebef",
+    "a00e8364-aaf7-4608-9d3c-264699c5a539": "4f544dba-1d8c-4a39-8f0c-726801b1da6f",
+    "a7b16a11-7f7a-4b10-9af0-8c930be6dd5f": "332d32ba-8744-4ae7-aed4-2ebf70b793d2",
+    "a8eace19-3a71-47a9-ae9e-5e1bfc1c13c8": "7e750485-c66b-41f2-97e8-62693c1b2783",
+    "ade94ecb-c164-4d35-ac63-5e30824b7ea2": "7141ae4a-a5fe-43fa-98e0-b90e44e25b47",
+    "c28ddd36-415b-4e4b-82b7-06bd83ec1a93": "a4458491-ec0c-44bc-a647-feddf32d451a",
+    "c2c56328-1823-437e-b12e-c61250011a53": "94238f46-388f-4f09-a3f6-678744f6f5b9"
+  },
+  "action_ids_regenerated": 102,
+  "manifest_member": "fef9a688-f8d2-4bc0-a60d-302ff7ac3041.ulanziProfile/Profiles/7e750485-c66b-41f2-97e8-62693c1b2783/manifest.json",
+  "controller_index": 1,
+  "key": "3_2",
+  "new_action_id": "432cc46f-21bc-45ff-bae9-840058e56999",
+  "semantic_diff": {
+    "before": {
+      "Action": "com.ulanzi.ulanzideck.smallwindow.window",
+      "ActionID": "88117849-5900-403f-8ac3-48198fa96e33",
+      "ActionParam": {
+        "SmallViewMode": 1
+      },
+      "LinkedTitle": true,
+      "Name": "Background setting",
+      "Plugin": {},
+      "State": 0,
+      "ViewParam": [
+        {
+          "Icon": "Images/0927bd11-c7ba-4993-9507-a7ae5fe85f2b.png",
+          "IconRel": "Images/0927bd11-c7ba-4993-9507-a7ae5fe85f2b.png"
+        }
+      ]
+    },
+    "after": {
+      "Action": "com.arkamax.ulanzi.imageslide.slideshow",
+      "ActionID": "432cc46f-21bc-45ff-bae9-840058e56999",
+      "ActionParam": {
+        "SmallViewMode": 2
+      },
+      "LinkedTitle": true,
+      "Name": "Image Slideshow",
+      "Plugin": {
+        "Name": "Image Slideshow",
+        "UUID": "com.arkamax.ulanzi.imageslide",
+        "Version": "0.2.0"
+      },
+      "State": 0,
+      "ViewParam": [
+        {
+          "Icon": "",
+          "IconRel": "",
+          "Name": "Image Slideshow"
+        }
+      ]
+    }
+  },
+  "preserved": [
+    "Device.UUID",
+    "Device.Model",
+    "plugin UUIDs",
+    "assets and non-identity semantics"
+  ],
+  "validation": {
+    "header": "#Version: 2\\n",
+    "zip": "valid",
+    "read_back": "valid",
+    "package_id_collision": false,
+    "profile_id_collisions": 0,
+    "action_id_collisions": 0,
+    "profile_references": "resolved"
+  },
+  "rollback": "Import the untouched original exported profile; it remains the rollback authority."
+}

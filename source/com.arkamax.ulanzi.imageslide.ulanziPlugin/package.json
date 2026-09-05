@@ -1,0 +1,16 @@
+{
+  "name": "arkamax-ulanzi-imageslide",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node plugin/app.js",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=20.12.2"
+  },
+  "dependencies": {
+    "ws": "8.21.3"
+  }
+}

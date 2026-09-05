@@ -1,0 +1,49 @@
+ImageSlidePlugin 0.2.0 verification
+===================================
+
+Node tests: PASS (23/23)
+- Protocol 2.1.2 state/global-settings/Property Inspector frames
+- Slideshow settings, path filters, dimensions, size, ordering, hash dedupe and fallback
+- Watcher debounce, periodic rescan, atomic rename and active-only lifecycle
+- Setup action routing, independent Start-Process bootstrap, operation persistence and PI status polling
+- Terminal status requires a current v5 request and live center-action verification
+- Versioned PREPARED validation and stale-request refusal
+- Restore-specific codes and phases remain allowlisted and path-free
+
+Python tests: PASS (28/28)
+- Independent profile clone and complete identity separation
+- Delivered profile/receipt/action metadata and package inventory
+- Pinned Studio compatibility, direct SHA-256, schema refusal and atomic rollback gates
+- Setup state machine selects patch for built-in, restore for ImageSlide, and refusal for unrelated actions
+- Every generated Image Slideshow large-display assignment persists SmallViewMode 2
+- Restore requires one cryptographically target-bound successful patch receipt and exact pre-patch backup
+- Missing receipt, tampered backup, target mismatch, ambiguous valid lineages, and tampered requested receipt refuse safely
+- Replayed/opposite-state requests fail through operation/current-state mismatch
+- Production-shape PowerShell 5.1 patch -> restore round-trip is byte-exact
+- First 0.2.0 Setup press can bind and restore an exact verified 0.1.9 apply-or-repair receipt/backup lineage; no fresh 0.2.0 patch cycle is required
+- Atomic replacement and rollback use real confined backup paths
+- ProfilesV2 precedence, ProfilesV1 fallback, current-page-only binding, and opaque safe path segments
+- Exact Setup key/action-ID binding and argument-injection refusal
+- Target-bound Apply ignores unrelated malformed group manifests
+- Packaged runtime and installer contain zero Get-FileHash tokens
+
+Windows PowerShell parser: PASS
+- Install-ImageSlidePlugin.ps1
+- helper/Invoke-ImageSlideSetup.ps1
+
+Package readback: PASS
+- Plugin ZIP has exactly one expected package root and two actions
+- Source and helper ZIPs are healthy
+- Profile Version 2 header/ZIP/receipt/action metadata are coherent
+- SHA256SUMS entries match delivered bytes
+
+Live AppData setup/restore test: NOT RUN by design.
+Physical detached-assistant lifecycle: NOT RUN; install and restore must each succeed physically before the automatic workflow is considered confirmed.
+
+Pinned local evidence
+---------------------
+UlanziDeck.exe file version: 3.2.11.0
+UlanziDeck.exe SHA-256: eee2458802e36170e8b09fe58d5d8f9b616813ee362fc83ac99884b3615509c4
+Profile package UUID: fef9a688-f8d2-4bc0-a60d-302ff7ac3041
+Selected cloned page UUID: 7e750485-c66b-41f2-97e8-62693c1b2783
+Profile SHA-256: 36102941f7c4139ddf7ff20cd4a90d18da46355d422d4ededc7fa4236f88d4d2

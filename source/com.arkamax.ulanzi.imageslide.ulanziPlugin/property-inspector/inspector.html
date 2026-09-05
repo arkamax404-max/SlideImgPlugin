@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Image Slideshow</title>
+  <style>
+    :root{color-scheme:dark;font:13px system-ui,sans-serif}body{margin:0;padding:12px;background:#1e1f22;color:#eee}.row{margin:0 0 12px}label{display:block;margin-bottom:5px;color:#bbb}input,select,button{box-sizing:border-box;width:100%;padding:7px;border:1px solid #555;border-radius:4px;background:#292b2f;color:#fff}input[readonly]{color:#ccc}button{cursor:pointer;background:#315d94}.inline{display:flex;gap:8px}.inline>*{flex:1}.check{display:flex;align-items:center;gap:8px}.check input{width:auto}.status{padding:8px;border-radius:4px;background:#292b2f}.status.error{border-left:4px solid #e05252}.status.warning{border-left:4px solid #e2a93b}.status.ready{border-left:4px solid #4ea76f}.hint{font-size:11px;color:#999;margin-top:5px}
+  </style>
+</head>
+<body>
+  <div class="row"><label for="folder">Image folder</label><input id="folder" readonly placeholder="Included sample slides"><button id="select" type="button">Select folder</button><div class="hint">Top-level PNG, JPG, JPEG, or SVG files; exactly 458 × 196 px.</div></div>
+  <div class="row inline"><div><label for="interval">Interval (seconds)</label><input id="interval" type="number" min="5" max="86400" step="1" value="10"></div><div><label for="sort">Order</label><select id="sort"><option value="name">Alphabetical</option><option value="date">Modified date (newest first)</option></select></div></div>
+  <div class="row check"><input id="loop" type="checkbox" checked><label for="loop">Loop slideshow</label></div>
+  <div class="row"><div id="status" class="status ready">Connecting…</div></div>
+  <button id="refresh" type="button">Refresh folder</button>
+  <script src="inspector.js"></script>
+</body>
+</html>

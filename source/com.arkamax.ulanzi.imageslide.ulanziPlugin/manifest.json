@@ -1,0 +1,55 @@
+{
+  "UUID": "com.arkamax.ulanzi.imageslide",
+  "Name": "Image Slideshow",
+  "Description": "Offline slideshow for the Ulanzi D200 458 x 196 center display.",
+  "Overview": "Rotate local images on the D200 center display without replacing Ulanzi Studio.",
+  "Author": "Arkamax",
+  "Version": "0.2.0",
+  "Icon": "resources/icon.svg",
+  "Category": "Arkamax",
+  "CategoryIcon": "resources/category.svg",
+  "CodePath": "plugin/app.js",
+  "Type": "JavaScript",
+  "PrivateAPI": false,
+  "SupportedInMultiActions": false,
+  "Actions": [
+    {
+      "Name": "Image Slideshow",
+      "Tooltip": "Rotate local 458 x 196 images on the D200 center display.",
+      "Icon": "resources/action.svg",
+      "UUID": "com.arkamax.ulanzi.imageslide.slideshow",
+      "PropertyInspectorPath": "property-inspector/inspector.html",
+      "States": [
+        {
+          "Name": "Image Slideshow",
+          "Image": "resources/action.svg"
+        }
+      ],
+      "SupportedInMultiActions": false,
+      "DisableAutomaticStates": true,
+      "Controllers": ["Keypad"],
+      "Devices": ["D200"]
+    },
+    {
+      "Name": "Setup Large Display",
+      "Tooltip": "Guided install, repair, or restore for the D200 large display.",
+      "Icon": "resources/setup.svg",
+      "UUID": "com.arkamax.ulanzi.imageslide.setup",
+      "PropertyInspectorPath": "property-inspector/setup.html",
+      "States": [{"Name":"Setup Large Display","Image":"resources/setup.svg"}],
+      "SupportedInMultiActions": false,
+      "DisableAutomaticStates": true,
+      "Controllers": ["Keypad"],
+      "Devices": ["D200"]
+    }
+  ],
+  "OS": [
+    {
+      "Platform": "windows",
+      "MinimumVersion": "10"
+    }
+  ],
+  "Software": {
+    "MinVersion": "3.0.11"
+  }
+}
