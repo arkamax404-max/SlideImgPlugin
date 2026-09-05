@@ -1,4 +1,4 @@
-ImageSlidePlugin 0.3.1 verification
+ImageSlidePlugin 0.3.2 verification
 ===================================
 
 Node tests: PASS (23/23)

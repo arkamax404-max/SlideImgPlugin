@@ -36,3 +36,7 @@ Close Studio and reinstall the plugin package. Version 0.3.0 adds automatic cent
 ## Updating 0.3.0 to 0.3.1
 
 Version 0.3.1 keeps the same runtime behavior and normalizes the public repository layout for Community Store discovery. Reinstall only if you want installed metadata to report 0.3.1; action UUIDs, settings, backups, receipts, and restore lineage remain compatible.
+
+## Updating 0.3.1 to 0.3.2
+
+Version 0.3.2 corrects the public author metadata to Santiago Pérez. Runtime behavior and all persisted identities remain unchanged.
