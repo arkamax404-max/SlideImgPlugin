@@ -135,6 +135,40 @@ def validate_clone(source, output_path, old_package_id, new_package_id, old_prof
     if sha256(source) == sha256(output_data): raise ProfileError("Output unexpectedly matches input")
     return output_data, archive, root_manifest, manifests, new_action_ids
 
+def portable_receipt(profile_path: Path):
+    """Describe a delivered profile without retaining private source provenance."""
+    profile_data, archive = read_archive(profile_path)
+    package_id, _, _, root_manifest, profile_ids, _ = package_identity(archive)
+    selected = [item for item in candidates(archive) if item["action"] == ACTION_UUID]
+    if len(selected) != 1: raise ProfileError(f"Delivered profile must contain exactly one Image Slideshow action; found {len(selected)}")
+    item = selected[0]; entry = item["entry"]
+    if item["profile_id"] not in profile_ids or entry.get("Plugin", {}).get("UUID") != PLUGIN_UUID:
+        raise ProfileError("Delivered profile action metadata is inconsistent")
+    return {
+        "schema":"com.arkamax.ulanzi.imageslide.profile-artifact-receipt/v1",
+        "output_sha256":sha256(profile_data),
+        "package_id":package_id,
+        "profile_id":item["profile_id"],
+        "profile_name":root_manifest.get("Name", ""),
+        "manifest_member":item["manifest"],
+        "controller_index":item["controller_index"],
+        "key":"3_2",
+        "action_id":entry.get("ActionID", ""),
+        "action_uuid":entry.get("Action", ""),
+        "plugin_uuid":entry.get("Plugin", {}).get("UUID", ""),
+        "validation":{"header":"#Version: 2\\n","zip":"valid","read_back":"valid","profile_references":"resolved"},
+        "provenance":"Source profile identities are intentionally omitted from this portable delivery receipt.",
+    }
+
+def write_portable_receipt(profile_path: Path, receipt_path: Path|None=None):
+    receipt_path = receipt_path or profile_path.with_name(profile_path.name + ".receipt.json")
+    receipt = portable_receipt(profile_path)
+    receipt_path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = receipt_path.with_name(receipt_path.name + ".tmp")
+    with temporary.open("w",encoding="utf-8",newline="\n") as stream: stream.write(json.dumps(receipt,ensure_ascii=False,indent=2)+"\n")
+    temporary.replace(receipt_path)
+    return receipt
+
 def patch(input_path: Path, output_path: Path, profile_id: str, force: bool=False, clone_name: str|None=None, uuid_factory=None):
     if input_path.resolve() == output_path.resolve(): raise ProfileError("In-place patching is forbidden; choose a different output path")
     if output_path.exists(): raise ProfileError("Output already exists; choose a new filename")
@@ -179,7 +213,8 @@ def patch(input_path: Path, output_path: Path, profile_id: str, force: bool=Fals
     except Exception:
         output_path.unlink(missing_ok=True); raise
     receipt = {"schema":"com.arkamax.ulanzi.imageslide.profile-clone-patch/v2","input_sha256":sha256(source_data),"output_sha256":sha256(validated_data),"source_package_id":old_package_id,"clone_package_id":new_package_id,"source_name":old_name,"clone_name":new_name,"source_profile_id":profile_id,"clone_profile_id":profile_map[profile_id],"profile_id_map":profile_map,"action_ids_regenerated":len(new_action_ids),"manifest_member":rename_member(selected["manifest"],old_root,new_root,profile_map),"controller_index":selected["controller_index"],"key":"3_2","new_action_id":slideshow_action_id,"semantic_diff":{"before":before,"after":after},"preserved":["Device.UUID","Device.Model","plugin UUIDs","assets and non-identity semantics"],"validation":{"header":"#Version: 2\\n","zip":"valid","read_back":"valid","package_id_collision":False,"profile_id_collisions":0,"action_id_collisions":0,"profile_references":"resolved"},"rollback":"Import the untouched original exported profile; it remains the rollback authority."}
-    receipt_path = output_path.with_name(output_path.name + ".receipt.json"); receipt_path.write_text(json.dumps(receipt,ensure_ascii=False,indent=2)+"\n",encoding="utf-8",newline="\n")
+    receipt_path = output_path.with_name(output_path.name + ".receipt.json")
+    with receipt_path.open("w",encoding="utf-8",newline="\n") as stream: stream.write(json.dumps(receipt,ensure_ascii=False,indent=2)+"\n")
     print(json.dumps({"output":str(output_path),"receipt":str(receipt_path),"output_sha256":receipt["output_sha256"],"source_profile_id":profile_id,"clone_profile_id":profile_map[profile_id],"clone_package_id":new_package_id,"action_id":slideshow_action_id},sort_keys=True))
 
 def main(argv=None):
@@ -187,10 +222,15 @@ def main(argv=None):
     p_inspect=sub.add_parser("inspect",help="List every 3_2 candidate"); p_inspect.add_argument("input",type=Path)
     p_patch=sub.add_parser("patch",help="Write an independent cloned profile with the selected 3_2 action patched")
     p_patch.add_argument("input",type=Path); p_patch.add_argument("output",type=Path); p_patch.add_argument("--profile-id",required=True); p_patch.add_argument("--clone-name",help="Distinct clone name (default: 'Image Slideshow' for Arkamax)"); p_patch.add_argument("--force",action="store_true")
+    p_receipt=sub.add_parser("receipt",help="Generate a portable receipt for an existing delivered profile")
+    p_receipt.add_argument("profile",type=Path); p_receipt.add_argument("--output",type=Path)
     args=parser.parse_args(argv)
     try:
         if args.command=="inspect": inspect(args.input)
-        else: patch(args.input,args.output,args.profile_id,args.force,args.clone_name)
+        elif args.command=="patch": patch(args.input,args.output,args.profile_id,args.force,args.clone_name)
+        else:
+            receipt=write_portable_receipt(args.profile,args.output)
+            print(json.dumps({"profile":str(args.profile),"receipt":str(args.output or args.profile.with_name(args.profile.name+".receipt.json")),"output_sha256":receipt["output_sha256"]},sort_keys=True))
         return 0
     except (OSError,ProfileError) as exc: print(f"error: {exc}",file=sys.stderr); return 2
 

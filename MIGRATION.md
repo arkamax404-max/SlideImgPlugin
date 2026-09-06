@@ -40,3 +40,9 @@ Version 0.3.1 keeps the same runtime behavior and normalizes the public reposito
 ## Updating 0.3.1 to 0.3.2
 
 Version 0.3.2 corrects the public author metadata to Santiago Pérez. Runtime behavior and all persisted identities remain unchanged.
+
+## Universal 0.3.2 release candidate
+
+The local release candidate keeps the plugin UUID and both action UUIDs unchanged while adding one universal package for Windows x64 and macOS x64/arm64. Existing Windows Setup behavior, backups, receipts, and ProfilesV1 fallback remain unchanged.
+
+On macOS, Setup is deliberately limited to ProfilesV2. Close Studio when prompted and reopen it manually after the helper completes; automatic relaunch is not implemented. The slideshow works on the center display, but the Studio clock overlay can remain visible. macOS arm64 and the preserved Windows path still require physical release-gate validation.

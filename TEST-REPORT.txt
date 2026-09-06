@@ -1,58 +1,96 @@
-ImageSlidePlugin 0.3.2 verification
-===================================
+ImageSlidePlugin 0.3.2 universal release-candidate verification
+================================================================
 
-Node tests: PASS (23/23)
-- Protocol 2.1.2 state/global-settings/Property Inspector frames
-- Slideshow settings, path filters, dimensions, size, ordering, hash dedupe and fallback
-- Watcher debounce, periodic rescan, atomic rename and active-only lifecycle
-- Automatic centered-cover resize, 40 MP input bound and unchanged exact-size pass-through
-- Resize cache keyed by path, size and modification time
-- Setup action routing, independent Start-Process bootstrap, operation persistence and PI status polling
-- Terminal status requires a current v5 request and live center-action verification
-- Versioned PREPARED validation and stale-request refusal
-- Restore-specific codes and phases remain allowlisted and path-free
+Scope
+-----
+- One source tree and one plugin ZIP for Windows x64, macOS x64, and macOS arm64.
+- Stable plugin/action UUIDs and preserved Windows helper files/behavior.
+- macOS Setup is ProfilesV2-only and requires manual Studio reopen.
+- No live Studio profile, D200 state, or installed non-disposable plugin was modified.
 
-Python tests: PASS (29/29)
-- Independent profile clone and complete identity separation
-- Delivered profile/receipt/action metadata and package inventory
-- Pinned Studio compatibility, direct SHA-256, schema refusal and atomic rollback gates
-- Setup state machine selects patch for built-in, restore for ImageSlide, and refusal for unrelated actions
-- Every generated Image Slideshow large-display assignment persists SmallViewMode 2
-- Store metadata references the supplied cover/banner artwork and matches Windows-only manifest support
-- Restore requires one cryptographically target-bound successful patch receipt and exact pre-patch backup
-- Missing receipt, tampered backup, target mismatch, ambiguous valid lineages, and tampered requested receipt refuse safely
-- Replayed/opposite-state requests fail through operation/current-state mismatch
-- Production-shape PowerShell 5.1 patch -> restore round-trip is byte-exact
-- First 0.2.0 Setup press can bind and restore an exact verified 0.1.9 apply-or-repair receipt/backup lineage; no fresh 0.2.0 patch cycle is required
-- Atomic replacement and rollback use real confined backup paths
-- ProfilesV2 precedence, ProfilesV1 fallback, current-page-only binding, and opaque safe path segments
-- Exact Setup key/action-ID binding and argument-injection refusal
-- Target-bound Apply ignores unrelated malformed group manifests
-- Packaged runtime and installer contain zero Get-FileHash tokens
+Local work units (no commits created)
+-------------------------------------
+1. Universal platform contract and Setup hardening
+   - Official `windows`/`mac` manifest and Store platform tokens, Darwin dispatch,
+     ProfilesV2-only claims, manual reopen, and tested post-rename rollback.
+   - Focused verification: Node source tests 42/42. Runtime boundary: temp-fixture helper lifecycle.
+   - Rollback boundary: manifest/store metadata, macOS helper, setup dispatch, and their Node tests.
+2. Reproducible universal packaging and delivery gates
+   - Lock-integrity downloads, explicit target inventory, PE/Mach-O inspection, deterministic ZIPs,
+     platform-aware Python tests, and Studio Node x64 decode harness.
+   - Focused verification: stage PASS; Python final 16 passed/15 skipped; Studio Node harness PASS.
+   - The optional production-shape Windows fixture is repository-relative by default and can be
+   supplied with IMAGESLIDE_WINDOWS_PROFILE_FIXTURE and IMAGESLIDE_WINDOWS_PROFILE_ID; only
+   fixture-dependent tests skip when either value is unavailable.
+   - Delivery-wide privacy checks inspect standalone files plus every member of the plugin, source,
+     helper, and profile archives. The portable profile receipt omits all source identity provenance.
+   - Rollback boundary: tools/profile_tool.py, tools/build_release.py, and tests/test_delivery.py.
+3. Release documentation and local artifacts
+   - README, MIGRATION, Store copy, TEST-REPORT, three ZIPs, and SHA256SUMS.
+   - Focused verification: deterministic rebuild produced identical ZIP hashes; ZIP/checksum readback PASS.
+   - Rollback boundary: documentation and generated local artifacts only.
 
-Windows PowerShell parser: PASS
-- Install-ImageSlidePlugin.ps1
-- helper/Invoke-ImageSlideSetup.ps1
+Node source tests: PASS (42/42)
+--------------------------------
+Command: npm ci --ignore-scripts --include=optional && node --test
+Environment: repository source package; Node v26.3.1; npm 11.16.0.
+- Protocol, slideshow, image filtering/resizing, watcher, settings, and lifecycle tests passed.
+- Windows helper dispatch and safety assertions passed without changing the PowerShell helper.
+- Darwin dispatch, ProfilesV2-only target resolution, Setup/Restore lineage, bounded diagnostics,
+  manual-reopen state, and post-rename byte-for-byte rollback tests passed.
 
-Package readback: PASS
-- Repository exposes exactly one root *.ulanziPlugin folder with manifest.json
-- Plugin ZIP has exactly one expected package root and two actions
-- Plugin ZIP includes Sharp 0.35.4, libvips 8.18.6, and the Windows x64 native binding
-- Source and helper ZIPs are healthy
-- Profile Version 2 header/ZIP/receipt/action metadata are coherent
-- SHA256SUMS entries match delivered bytes
+Python source/delivery tests before artifact build: PASS (15 passed, 16 skipped)
+----------------------------------------------------------------------------
+Command: IMAGESLIDE_SKIP_ARTIFACT_TESTS=1 python3 -m unittest discover -s tests -v
+Environment: macOS Python 3.9.6.
+- Deterministic platform-independent manifest, metadata, identity, helper-inventory, profile,
+  portable-receipt generation, safety-marker, packaging-policy, and documentation assertions passed.
+- 14 Windows PowerShell tests (one also needs the optional profile fixture), one additional
+  fixture-only test, and the pre-build artifact test were skipped. powershell.exe and
+  IMAGESLIDE_WINDOWS_PROFILE_FIXTURE/IMAGESLIDE_WINDOWS_PROFILE_ID are unavailable on this host.
+- The artifact-readback test was intentionally skipped until source tests passed.
 
-Ulanzi Node runtime harness: PASS
-- Ulanzi bundled Node 20.12.2 loaded Sharp from the extracted release ZIP
-- Centered-cover resize produced a 458x196 PNG
+Universal package stage: PASS
+-----------------------------
+Command: python3 tools/build_release.py --stage-only
+- Lockfile URL/version/SHA-512 integrity verified for every staged package.
+- Runtime inventory is limited to sharp 0.35.4, ws 8.21.3, required JS dependencies, and these
+  native targets: win32-x64, darwin-x64, darwin-arm64 plus matching libvips payloads.
+- PE x64 and Mach-O x86_64/arm64 architecture headers were inspected without executing foreign
+  binaries. No Linux, FreeBSD, wasm, Windows ia32/arm64, or development/test package variants remain.
+- Manifest verification requires the official OS array exactly: windows 10 and mac 13.
 
-Live AppData setup/restore test: NOT RUN by design.
-Physical detached-assistant lifecycle: NOT RUN; install and restore must each succeed physically before the automatic workflow is considered confirmed.
+Studio Node macOS x64 runtime: PASS
+-----------------------------------
+Command: arch -x86_64 <Studio Node> --input-type=module -e <import/decode harness>
+Result: Node v20.18.0 x64 loaded sharp 0.35.4/libvips 8.18.6 and decoded/resized an SVG to a
+458 x 196 PNG (2,458 bytes).
 
-Pinned local evidence
----------------------
-UlanziDeck.exe file version: 3.2.11.0
-UlanziDeck.exe SHA-256: eee2458802e36170e8b09fe58d5d8f9b616813ee362fc83ac99884b3615509c4
-Profile package UUID: fef9a688-f8d2-4bc0-a60d-302ff7ac3041
-Selected cloned page UUID: 7e750485-c66b-41f2-97e8-62693c1b2783
-Profile SHA-256: 36102941f7c4139ddf7ff20cd4a90d18da46355d422d4ededc7fa4236f88d4d2
+Final artifact verification: PASS
+---------------------------------
+Command: python3 tools/build_release.py
+Result: universal stage verified; plugin, source, and helper ZIPs built.
+
+Command: python3 -m unittest discover -s tests -v
+Result: PASS (16 passed, 15 skipped).
+- One plugin ZIP root, all target native packages, source/helper ZIP CRCs, stable action/profile
+  identity, and every SHA256SUMS entry were verified.
+- All 12 checksummed delivery files plus SHA256SUMS were scanned directly; ZIP and profile members
+  were also decompressed and scanned. No inherited private Windows development path, local username,
+  or source profile identifier remains. The portable receipt is bound to the unchanged profile hash,
+  package/profile/action IDs, and exact manifest location without retaining source identity fields.
+- The source ZIP excludes generated profile/receipt payloads. Generic documented installation paths
+  and synthetic test paths and IDs remain intentionally present.
+- The final 15 skips are 14 Windows PowerShell tests (one also needs the optional profile fixture)
+  plus one fixture-only test; their platform-independent safety and preservation assertions passed.
+
+Physical validation status and limitations
+------------------------------------------
+- macOS x64 slideshow import/decode and ProfilesV2 Setup/Restore have prior physical evidence.
+- That prior local Studio evidence used an installed disposable manifest with `macos`; it was not
+  modified. Source and release artifacts now use the official `mac` schema token.
+- macOS clock overlay can remain visible; this is an accepted release-candidate limitation.
+- macOS requires manual Studio reopen after Setup; relaunch is not implemented.
+- Windows x64 was not physically rerun for this candidate.
+- macOS arm64 packages were statically validated only; Apple Silicon was not physically tested.
+- Publication, upload, GitHub release creation, commit, push, and remote changes were not performed.

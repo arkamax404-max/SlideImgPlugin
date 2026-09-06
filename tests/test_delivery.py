@@ -1,16 +1,20 @@
-import contextlib, hashlib, importlib.util, io, json, subprocess, tempfile, unittest, zipfile
+import contextlib, hashlib, importlib.util, io, json, os, shutil, subprocess, tempfile, unittest, zipfile
 from pathlib import Path
 
 ROOT=Path(__file__).resolve().parent.parent
 PLUGIN=ROOT/"com.arkamax.ulanzi.imageslide.ulanziPlugin"
-SOURCE=Path(r"D:\Desarrollo\UlanziBigButtomPlugin\POST_Arkamax.ulanziDeckProfile")
-TARGET="a8eace19-3a71-47a9-ae9e-5e1bfc1c13c8"
+DEFAULT_WINDOWS_PROFILE_FIXTURE=ROOT/"tests"/"fixtures"/"windows-profile.ulanziDeckProfile"
+SOURCE=Path(os.environ.get("IMAGESLIDE_WINDOWS_PROFILE_FIXTURE",DEFAULT_WINDOWS_PROFILE_FIXTURE)).expanduser()
+TARGET=os.environ.get("IMAGESLIDE_WINDOWS_PROFILE_ID")
+WINDOWS_PROFILE_FIXTURE_AVAILABLE=SOURCE.is_file() and bool(TARGET)
 SETUP_ID="11111111-1111-4111-8111-111111111111"
 OTHER_SETUP_ID="22222222-2222-4222-8222-222222222222"
+POWERSHELL=shutil.which("powershell.exe")
 spec=importlib.util.spec_from_file_location("profile_tool",ROOT/"tools"/"profile_tool.py");tool=importlib.util.module_from_spec(spec);spec.loader.exec_module(tool)
 
 class DeliveryTests(unittest.TestCase):
     def _resolve_fixture(self, devices, stores, pressed_key="0_0", action_id=SETUP_ID):
+        if not POWERSHELL:self.skipTest("Windows PowerShell fixture is unavailable on this host")
         helper=(PLUGIN/"helper"/"Invoke-ImageSlideSetup.ps1").read_text(encoding="utf-8")
         prefix=helper[helper.index("$ActionUuid="):helper.index("$exitCode=0")]
         with tempfile.TemporaryDirectory() as td:
@@ -35,6 +39,7 @@ class DeliveryTests(unittest.TestCase):
         return {"Type":"Keypad","Actions":{"3_2":{"Action":action},setup_key:{"Action":setup_action,"ActionID":setup_id}}}
 
     def _requested_target_fixture(self, case):
+        if not POWERSHELL:self.skipTest("Windows PowerShell fixture is unavailable on this host")
         helper=(PLUGIN/"helper"/"Invoke-ImageSlideSetup.ps1").read_text(encoding="utf-8");prefix=helper[helper.index("$ActionUuid="):helper.index("$exitCode=0")]
         group_id="group-a";page_id="page-a";other_page="page-b"
         with tempfile.TemporaryDirectory() as td:
@@ -53,6 +58,7 @@ class DeliveryTests(unittest.TestCase):
             return subprocess.run(["powershell.exe","-NoProfile","-ExecutionPolicy","Bypass","-File",str(script)],capture_output=True,text=True)
 
     def test_profile_clone_uses_only_new_identity_and_preserves_device(self):
+        if not WINDOWS_PROFILE_FIXTURE_AVAILABLE:self.skipTest("Optional Windows profile fixture is unavailable; set IMAGESLIDE_WINDOWS_PROFILE_FIXTURE and IMAGESLIDE_WINDOWS_PROFILE_ID")
         _,source_zip=tool.read_archive(SOURCE);old_pkg,_,_,old_root,old_profiles,old_docs=tool.package_identity(source_zip);old_actions=set(tool.collect_key_values(old_docs.values(),"ActionID"))
         with tempfile.TemporaryDirectory() as td:
             out=Path(td)/"clone.ulanziDeckProfile"
@@ -64,8 +70,18 @@ class DeliveryTests(unittest.TestCase):
 
     def test_delivered_profile_receipt_and_action_metadata(self):
         profile=ROOT/"ImageSlide.ulanziDeckProfile";receipt=json.loads(Path(str(profile)+".receipt.json").read_text(encoding="utf-8"));data=profile.read_bytes();self.assertEqual(receipt["output_sha256"],hashlib.sha256(data).hexdigest())
-        _,z=tool.read_archive(profile);entry=json.loads(z.read(receipt["manifest_member"]))["Controllers"][receipt["controller_index"]]["Actions"]["3_2"]
+        self.assertEqual(receipt["schema"],"com.arkamax.ulanzi.imageslide.profile-artifact-receipt/v1")
+        self.assertFalse({"source_package_id","source_profile_id","profile_id_map","input_sha256"}&receipt.keys())
+        _,z=tool.read_archive(profile);package_id,_,_,_,profile_ids,_=tool.package_identity(z);entry=json.loads(z.read(receipt["manifest_member"]))["Controllers"][receipt["controller_index"]]["Actions"]["3_2"]
+        self.assertEqual(receipt["package_id"],package_id);self.assertIn(receipt["profile_id"],profile_ids);self.assertEqual(receipt["action_id"],entry["ActionID"])
         self.assertEqual(entry["Action"],"com.arkamax.ulanzi.imageslide.slideshow");self.assertEqual(entry["Plugin"],{"Name":"Image Slideshow","UUID":"com.arkamax.ulanzi.imageslide","Version":"0.3.2"})
+
+    def test_portable_profile_receipt_generation_is_deterministic(self):
+        profile=ROOT/"ImageSlide.ulanziDeckProfile"
+        with tempfile.TemporaryDirectory() as td:
+            first=Path(td)/"first.json";second=Path(td)/"second.json"
+            tool.write_portable_receipt(profile,first);tool.write_portable_receipt(profile,second)
+            self.assertEqual(first.read_bytes(),second.read_bytes())
 
     def test_helper_is_pinned_fail_closed_two_stage_and_atomic(self):
         plugin=PLUGIN;helper=(plugin/"helper"/"Invoke-ImageSlideSetup.ps1").read_text(encoding="utf-8");compat=json.loads((plugin/"helper"/"compatibility.json").read_text())
@@ -91,6 +107,7 @@ class DeliveryTests(unittest.TestCase):
         self.assertGreaterEqual(precheck.count("REPREPARE_REQUIRED"),10);self.assertNotIn("ResolveRequestedTarget",precheck)
         self.assertIn("pluginVersion=$PluginVersion",helper);self.assertIn("function ValidSafeSegment",helper);self.assertNotIn("not(ValidUuid $groupId)",helper)
 
+    @unittest.skipUnless(POWERSHELL and WINDOWS_PROFILE_FIXTURE_AVAILABLE,"Windows PowerShell/profile fixture is unavailable; set IMAGESLIDE_WINDOWS_PROFILE_FIXTURE and IMAGESLIDE_WINDOWS_PROFILE_ID")
     def test_production_shape_patch_restore_round_trip_is_byte_exact(self):
         helper=(PLUGIN/"helper"/"Invoke-ImageSlideSetup.ps1").read_text(encoding="utf-8")
         self.assertIn("[IO.File]::Replace($temp,$manifest,$replaceBackup)",helper);self.assertIn("[IO.File]::Replace($restoreTemp,$manifest,$failedPatched)",helper)
@@ -112,6 +129,7 @@ $restoreTemp=$manifest+'.restore';Copy-Item -LiteralPath $backup -Destination $r
             run=subprocess.run(["powershell.exe","-NoProfile","-ExecutionPolicy","Bypass","-File",str(script)],capture_output=True,text=True);self.assertEqual(run.returncode,0,run.stdout+run.stderr);result=json.loads(run.stdout);self.assertTrue(result["backupMatches"]);self.assertEqual(result["action"],"com.arkamax.ulanzi.imageslide.slideshow");self.assertTrue(result["restored"]);self.assertTrue(result["failedMatches"])
 
     def _restore_candidate_fixture(self,case):
+        if not POWERSHELL:self.skipTest("Windows PowerShell fixture is unavailable on this host")
         helper=(PLUGIN/"helper"/"Invoke-ImageSlideSetup.ps1").read_text(encoding="utf-8");prefix=helper[helper.index("$ActionUuid="):helper.index("$exitCode=0")]
         with tempfile.TemporaryDirectory() as td:
             root=Path(td);manifest=root/"manifest.json";original=json.dumps({"Controllers":[self._keypad()]},separators=(",",":")).encode();patched=json.dumps({"Controllers":[self._keypad(action="com.arkamax.ulanzi.imageslide.slideshow")]},separators=(",",":")).encode();manifest.write_bytes(patched);backup_root=root/"backups";run=backup_root/"run-a";run.mkdir(parents=True);backup=run/"manifest.before.json";backup.write_bytes(original)
@@ -225,6 +243,7 @@ $restoreTemp=$manifest+'.restore';Copy-Item -LiteralPath $backup -Destination $r
         positions=[helper.index("SetPhase '"+phase+"'") for phase in phases];self.assertEqual(positions,sorted(positions))
         for start,end in zip(positions,positions[1:]+[helper.index("$request=$null;$bindingHash=''")]):self.assertIn("try{",helper[start:end]);self.assertIn("catch{",helper[start:end])
 
+    @unittest.skipUnless(POWERSHELL,"Windows PowerShell fixture is unavailable on this host")
     def test_direct_dotnet_sha256_matches_fixture_and_pinned_executable(self):
         helper=(PLUGIN/"helper"/"Invoke-ImageSlideSetup.ps1").read_text(encoding="utf-8")
         function=helper[helper.index("function HashFileDirect"):helper.index("function ReadJson")]
@@ -238,6 +257,7 @@ $restoreTemp=$manifest+'.restore';Copy-Item -LiteralPath $backup -Destination $r
             hashes=[line.strip() for line in run.stdout.splitlines() if line.strip()]
         self.assertEqual(hashes,[hashlib.sha256(b"ImageSlidePlugin direct hash fixture\n").hexdigest(),expected])
 
+    @unittest.skipUnless(POWERSHELL,"Windows PowerShell fixture is unavailable on this host")
     def test_request_pointer_publication_and_all_runtime_hashes_are_direct(self):
         plugin=PLUGIN;helper=(plugin/"helper"/"Invoke-ImageSlideSetup.ps1").read_text(encoding="utf-8");installer=(ROOT/"Install-ImageSlidePlugin.ps1").read_text(encoding="utf-8")
         self.assertNotIn("Get-FileHash",helper);self.assertNotIn("Get-FileHash",installer);self.assertIn("function Hash([string]$Path){HashFileDirect $Path}",helper)
@@ -262,18 +282,28 @@ $restoreTemp=$manifest+'.restore';Copy-Item -LiteralPath $backup -Destination $r
         self.assertEqual(list(ROOT.glob("*.ulanziPlugin")),[PLUGIN]);self.assertTrue((PLUGIN/"manifest.json").is_file())
         installer=(ROOT/"Install-ImageSlidePlugin.ps1").read_text();self.assertIn("SupportsShouldProcess = $true",installer);self.assertNotIn("com.arkamax.ulanzi.bigbackground",installer);self.assertNotRegex(installer,r"(?i)Stop-Process|taskkill")
 
-    def test_store_metadata_uses_supplied_artwork_and_declares_windows_only(self):
+    def test_store_metadata_and_manifest_declare_one_universal_listing(self):
         store=json.loads((ROOT/"store.json").read_text(encoding="utf-8"))
         self.assertEqual(store["cover"],"assets/cover.png")
         self.assertEqual(store["screenshots"],["assets/banner.png"])
-        self.assertIn("Windows only",store["longDescription"])
+        self.assertIn("Windows x64 and macOS x64/arm64",store["longDescription"])
+        self.assertIn("reopen Studio manually",store["longDescription"])
+        self.assertIn("clock overlay can remain visible",store["longDescription"])
         self.assertIn("https://github.com/chilleno/claude-deck",store["longDescription"])
-        self.assertIn("windows",store["tags"])
+        self.assertIn("windows",store["tags"]);self.assertIn("mac",store["tags"]);self.assertNotIn("macos",store["tags"])
         self.assertEqual(tool.PNG_DIMS((ROOT/store["cover"]).read_bytes()),(1672,941))
         self.assertEqual(tool.PNG_DIMS((ROOT/store["screenshots"][0]).read_bytes()),(2172,724))
         manifest=json.loads((PLUGIN/"manifest.json").read_text(encoding="utf-8"))
-        self.assertEqual(manifest["OS"],[{"Platform":"windows","MinimumVersion":"10"}])
+        self.assertEqual(manifest["OS"],[{"Platform":"windows","MinimumVersion":"10"},{"Platform":"mac","MinimumVersion":"13"}])
+        self.assertNotIn("\"Platform\": \"macos\"",(PLUGIN/"manifest.json").read_text(encoding="utf-8"))
         self.assertIn("https://github.com/chilleno/claude-deck",(ROOT/"README.md").read_text(encoding="utf-8"))
+
+    def test_release_builder_pins_only_the_three_runtime_targets(self):
+        spec=importlib.util.spec_from_file_location("build_release",ROOT/"tools"/"build_release.py");builder=importlib.util.module_from_spec(spec);spec.loader.exec_module(builder)
+        self.assertEqual(builder.RUNTIME_PACKAGES["sharp"],"0.35.4");self.assertEqual(builder.RUNTIME_PACKAGES["ws"],"8.21.3")
+        native={name for name in builder.RUNTIME_PACKAGES if name.startswith("@img/sharp-")}
+        self.assertEqual(native,{"@img/sharp-win32-x64","@img/sharp-darwin-x64","@img/sharp-libvips-darwin-x64","@img/sharp-darwin-arm64","@img/sharp-libvips-darwin-arm64"})
+        source=(ROOT/"tools"/"build_release.py").read_text(encoding="utf-8");self.assertNotIn("npm install",source);self.assertIn("entry[\"integrity\"]",source);self.assertIn("pe_machine",source);self.assertIn("macho_cpu",source)
 
     def test_every_generated_slideshow_assignment_hides_the_clock(self):
         plugin=PLUGIN
@@ -286,6 +316,7 @@ $restoreTemp=$manifest+'.restore';Copy-Item -LiteralPath $backup -Destination $r
         self.assertEqual(len(assignments),1)
         self.assertEqual(assignments[0]["ActionParam"],{"SmallViewMode":2})
 
+    @unittest.skipIf(os.environ.get("IMAGESLIDE_SKIP_ARTIFACT_TESTS")=="1","release artifacts are built only after source tests pass")
     def test_packages_and_checksum_manifest_read_back(self):
         plugin_root="com.arkamax.ulanzi.imageslide.ulanziPlugin"
         with zipfile.ZipFile(ROOT/(plugin_root+".zip")) as archive:
@@ -293,11 +324,20 @@ $restoreTemp=$manifest+'.restore';Copy-Item -LiteralPath $backup -Destination $r
             manifest=json.loads(archive.read(plugin_root+"/manifest.json"));self.assertEqual(manifest["Version"],"0.3.2");self.assertEqual(manifest["Author"],"Santiago P\u00e9rez")
             for name in names:
                 if not name.endswith("/"):self.assertNotIn(b"Get-FileHash",archive.read(name))
-            for member in ("plugin/app.js","plugin/images.js","plugin/setup.js","property-inspector/inspector.html","property-inspector/setup.html","helper/Start-ImageSlideSetup.ps1","helper/Invoke-ImageSlideSetup.ps1","helper/compatibility.json","node_modules/sharp/dist/index.mjs","node_modules/@img/sharp-win32-x64/lib/sharp-win32-x64-0.35.4.node"):
+            for member in ("plugin/app.js","plugin/images.js","plugin/setup.js","property-inspector/inspector.html","property-inspector/setup.html","helper/Start-ImageSlideSetup.ps1","helper/Invoke-ImageSlideSetup.ps1","helper/Invoke-ImageSlideSetup.mjs","helper/compatibility.json","node_modules/sharp/dist/index.mjs","node_modules/ws/lib/websocket.js","node_modules/@img/sharp-win32-x64/lib/sharp-win32-x64-0.35.4.node","node_modules/@img/sharp-darwin-x64/lib/sharp-darwin-x64-0.35.4.node","node_modules/@img/sharp-libvips-darwin-x64/lib/libvips-cpp.8.18.6.dylib","node_modules/@img/sharp-darwin-arm64/lib/sharp-darwin-arm64-0.35.4.node","node_modules/@img/sharp-libvips-darwin-arm64/lib/libvips-cpp.8.18.6.dylib"):
                 self.assertIn(plugin_root+"/"+member,names)
+            img_packages={Path(name).parts[3] for name in names if len(Path(name).parts)>3 and Path(name).parts[1:3]==("node_modules","@img")}
+            self.assertEqual(img_packages,{"colour","sharp-win32-x64","sharp-darwin-x64","sharp-libvips-darwin-x64","sharp-darwin-arm64","sharp-libvips-darwin-arm64"})
         for name in ("ImageSlidePlugin-source.zip","ImageSlideSetupHelper.zip"):
             with zipfile.ZipFile(ROOT/name) as archive:self.assertIsNone(archive.testzip())
-        for line in (ROOT/"SHA256SUMS.txt").read_text(encoding="utf-8").splitlines():
+        with zipfile.ZipFile(ROOT/"ImageSlidePlugin-source.zip") as archive:
+            source_names=archive.namelist();self.assertIn("ImageSlidePlugin-source/tools/build_release.py",source_names);self.assertIn("ImageSlidePlugin-source/tests/test_delivery.py",source_names);self.assertIn("ImageSlidePlugin-source/com.arkamax.ulanzi.imageslide.ulanziPlugin/test/macos-setup.test.js",source_names)
+            self.assertFalse(any(name.endswith((".ulanziDeckProfile",".ulanziDeckProfile.receipt.json")) for name in source_names))
+        spec=importlib.util.spec_from_file_location("build_release_privacy",ROOT/"tools"/"build_release.py");builder=importlib.util.module_from_spec(spec);spec.loader.exec_module(builder)
+        expected_delivery={path.relative_to(ROOT).as_posix() for path in builder.DELIVERY_FILES}
+        checksum_lines=(ROOT/"SHA256SUMS.txt").read_text(encoding="utf-8").splitlines();self.assertEqual({line.split(None,1)[1] for line in checksum_lines},expected_delivery)
+        builder.verify_delivery_privacy((*builder.DELIVERY_FILES,ROOT/"SHA256SUMS.txt"))
+        for line in checksum_lines:
             expected,name=line.split(None,1);self.assertEqual(hashlib.sha256((ROOT/name.strip()).read_bytes()).hexdigest(),expected)
 
 if __name__=="__main__":unittest.main()
