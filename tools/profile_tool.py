@@ -8,7 +8,7 @@ HEADER = b"#Version: 2\n"
 BUILTIN_ACTION = "com.ulanzi.ulanzideck.smallwindow.window"
 PLUGIN_UUID = "com.arkamax.ulanzi.imageslide"
 ACTION_UUID = PLUGIN_UUID + ".slideshow"
-PLUGIN_VERSION = "0.3.2"
+PLUGIN_VERSION = "0.4.0"
 PROFILE_RE = re.compile(r"(?:^|/)Profiles/([^/]+)/manifest\.json$")
 PACKAGE_RE = re.compile(r"^([^/]+)\.ulanziProfile/")
 
@@ -169,6 +169,28 @@ def write_portable_receipt(profile_path: Path, receipt_path: Path|None=None):
     temporary.replace(receipt_path)
     return receipt
 
+def set_plugin_version(profile_path: Path, version: str=PLUGIN_VERSION):
+    profile_data, archive = read_archive(profile_path)
+    selected = [item for item in candidates(archive) if item["action"] == ACTION_UUID]
+    if len(selected) != 1: raise ProfileError(f"Delivered profile must contain exactly one Image Slideshow action; found {len(selected)}")
+    item = selected[0]; plugin = item["entry"].get("Plugin")
+    if not isinstance(plugin, dict) or plugin.get("UUID") != PLUGIN_UUID: raise ProfileError("Delivered profile action metadata is inconsistent")
+    if plugin.get("Version") == version: return profile_data
+    document = copy.deepcopy(item["document"])
+    document["Controllers"][item["controller_index"]]["Actions"]["3_2"]["Plugin"]["Version"] = version
+    target = io.BytesIO()
+    with zipfile.ZipFile(target,"w",allowZip64=True) as output:
+        output.comment = archive.comment
+        for info in archive.infolist():
+            body = archive.read(info)
+            if info.filename == item["manifest"]: body = json.dumps(document,ensure_ascii=False,separators=(",", ":")).encode("utf-8")
+            output.writestr(clone_info(info,info.filename),body)
+    temporary = profile_path.with_name(profile_path.name+".tmp")
+    temporary.write_bytes(HEADER+target.getvalue()); temporary.replace(profile_path)
+    _, checked = read_archive(profile_path); verified = [entry for entry in candidates(checked) if entry["action"] == ACTION_UUID]
+    if len(verified) != 1 or verified[0]["entry"].get("Plugin",{}).get("Version") != version: raise ProfileError("Updated profile version failed read-back validation")
+    return profile_path.read_bytes()
+
 def patch(input_path: Path, output_path: Path, profile_id: str, force: bool=False, clone_name: str|None=None, uuid_factory=None):
     if input_path.resolve() == output_path.resolve(): raise ProfileError("In-place patching is forbidden; choose a different output path")
     if output_path.exists(): raise ProfileError("Output already exists; choose a new filename")
@@ -224,13 +246,18 @@ def main(argv=None):
     p_patch.add_argument("input",type=Path); p_patch.add_argument("output",type=Path); p_patch.add_argument("--profile-id",required=True); p_patch.add_argument("--clone-name",help="Distinct clone name (default: 'Image Slideshow' for Arkamax)"); p_patch.add_argument("--force",action="store_true")
     p_receipt=sub.add_parser("receipt",help="Generate a portable receipt for an existing delivered profile")
     p_receipt.add_argument("profile",type=Path); p_receipt.add_argument("--output",type=Path)
+    p_version=sub.add_parser("set-version",help="Update only the delivered slideshow plugin version")
+    p_version.add_argument("profile",type=Path); p_version.add_argument("--version",default=PLUGIN_VERSION)
     args=parser.parse_args(argv)
     try:
         if args.command=="inspect": inspect(args.input)
         elif args.command=="patch": patch(args.input,args.output,args.profile_id,args.force,args.clone_name)
-        else:
+        elif args.command=="receipt":
             receipt=write_portable_receipt(args.profile,args.output)
             print(json.dumps({"profile":str(args.profile),"receipt":str(args.output or args.profile.with_name(args.profile.name+".receipt.json")),"output_sha256":receipt["output_sha256"]},sort_keys=True))
+        else:
+            data=set_plugin_version(args.profile,args.version)
+            print(json.dumps({"profile":str(args.profile),"version":args.version,"output_sha256":sha256(data)},sort_keys=True))
         return 0
     except (OSError,ProfileError) as exc: print(f"error: {exc}",file=sys.stderr); return 2
 

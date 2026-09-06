@@ -23,7 +23,7 @@ function fakeRuntime() {
 
 test("manifest and Property Inspector use the Studio 3.2.11 contract",()=>{
   const manifest=JSON.parse(readFileSync(join(root,"manifest.json"),"utf8"));
-assert.equal(PLUGIN_UUID.split(".").length,4);assert.equal(manifest.UUID,PLUGIN_UUID);assert.equal(manifest.Version,"0.3.2");assert.equal(manifest.Actions[0].UUID,ACTION_UUID);assert.equal(manifest.Author,"Santiago P\u00e9rez");
+assert.equal(PLUGIN_UUID.split(".").length,4);assert.equal(manifest.UUID,PLUGIN_UUID);assert.equal(manifest.Version,"0.4.0");assert.equal(manifest.Actions[0].UUID,ACTION_UUID);assert.equal(manifest.Author,"Santiago P\u00e9rez");
   const icon=readFileSync(join(root,"resources","icon.svg"),"utf8");assert.match(icon,/linearGradient id="background"/);assert.equal((icon.match(/stroke="#dcecff"/g)||[]).length,2);assert.match(icon,/id="mountain"/);
   assert.equal(manifest.Actions[0].PropertyInspectorPath,"property-inspector/inspector.html");assert.equal(manifest.Software.MinVersion,"3.0.11");
   const pi=readFileSync(join(root,"property-inspector","inspector.js"),"utf8");

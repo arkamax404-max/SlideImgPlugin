@@ -4,7 +4,7 @@ Created by **Santiago Pérez**.
 
 ImageSlidePlugin keeps Ulanzi Studio and its plugins intact. It installs **Image Slideshow**, imports an independently identified profile clone, and lets you choose an external image folder from the Property Inspector.
 
-Version **0.3.2** is packaged from one source tree as one universal `*.ulanziPlugin.zip` for Windows x64, macOS x64, and macOS arm64. It automatically center-crops images of other sizes to 458 x 196 in memory while leaving the original files untouched.
+Version **0.4.0** is packaged from one source tree as one universal `*.ulanziPlugin.zip` for Windows x64, macOS x64, and macOS arm64. It automatically center-crops images of other sizes to 458 x 196 in memory while leaving the original files untouched.
 
 An existing successful **0.1.9** Setup patch does not need to be patched again. Select **Restore original** before pressing Setup; 0.2.0 accepts that version's verified `apply-or-repair` receipt and backup, binds them into a new restore request, and restores the exact pre-0.1.9 bytes after Studio closes. Missing, ambiguous, changed, or tampered lineage fails closed.
 
@@ -106,7 +106,7 @@ Special thanks to the author of [chilleno/claude-deck](https://github.com/chille
 - The private `3_2` patch follows the active device/profile/page resolution shape demonstrated by [chilleno/claude-deck](https://github.com/chilleno/claude-deck/blob/main/apply-bigkey.sh), adapted to Windows with strict compatibility, backup, atomic replacement, and rollback gates.
 - The earlier manual Setup/Apply flow was physically validated on 0.1.9 after correcting the PowerShell 5.1 `File.Replace` backup path. The detached assistant retains that verified write path and its automatic wait/apply/relaunch lifecycle is physically validated.
 - The official Ulanzi manifest reference defines the OS platform tokens as `windows` and `mac`, so source and release artifacts use those exact values. Earlier local Studio behavior was proven with an installed disposable ImageSlide copy and a third-party D200 plugin that use `macos`; those installed copies were not changed, and that runtime evidence is not represented as proof of the release-schema token.
-- macOS x64 slideshow import/decode and ProfilesV2 Setup/Restore have physical evidence. Windows behavior is preserved but was not physically rerun for this local candidate. Darwin arm64 native packages are statically verified, not physically executed.
+- macOS x64 slideshow import/decode and ProfilesV2 Setup/Restore have physical evidence. Windows x64 installation, profile import, slideshow rotation, and clock suppression were physically rerun for this release. Darwin arm64 native packages are statically verified, not physically executed.
 
 ## Reproducible local package
 

@@ -1,4 +1,4 @@
-ImageSlidePlugin 0.3.2 universal release-candidate verification
+ImageSlidePlugin 0.4.0 universal release verification
 ================================================================
 
 Scope
@@ -18,7 +18,7 @@ Local work units (no commits created)
 2. Reproducible universal packaging and delivery gates
    - Lock-integrity downloads, explicit target inventory, PE/Mach-O inspection, deterministic ZIPs,
      platform-aware Python tests, and Studio Node x64 decode harness.
-   - Focused verification: stage PASS; Python final 16 passed/15 skipped; Studio Node harness PASS.
+   - Focused verification: stage PASS; Python final 17 passed/15 skipped; Studio Node harness PASS.
    - The optional production-shape Windows fixture is repository-relative by default and can be
    supplied with IMAGESLIDE_WINDOWS_PROFILE_FIXTURE and IMAGESLIDE_WINDOWS_PROFILE_ID; only
    fixture-dependent tests skip when either value is unavailable.
@@ -39,7 +39,7 @@ Environment: repository source package; Node v26.3.1; npm 11.16.0.
 - Darwin dispatch, ProfilesV2-only target resolution, Setup/Restore lineage, bounded diagnostics,
   manual-reopen state, and post-rename byte-for-byte rollback tests passed.
 
-Python source/delivery tests before artifact build: PASS (15 passed, 16 skipped)
+Python source/delivery tests before artifact build: PASS (16 passed, 16 skipped)
 ----------------------------------------------------------------------------
 Command: IMAGESLIDE_SKIP_ARTIFACT_TESTS=1 python3 -m unittest discover -s tests -v
 Environment: macOS Python 3.9.6.
@@ -72,7 +72,7 @@ Command: python3 tools/build_release.py
 Result: universal stage verified; plugin, source, and helper ZIPs built.
 
 Command: python3 -m unittest discover -s tests -v
-Result: PASS (16 passed, 15 skipped).
+Result: PASS (17 passed, 15 skipped).
 - One plugin ZIP root, all target native packages, source/helper ZIP CRCs, stable action/profile
   identity, and every SHA256SUMS entry were verified.
 - All 12 checksummed delivery files plus SHA256SUMS were scanned directly; ZIP and profile members
@@ -91,6 +91,8 @@ Physical validation status and limitations
   modified. Source and release artifacts now use the official `mac` schema token.
 - macOS clock overlay can remain visible; this is an accepted release-candidate limitation.
 - macOS requires manual Studio reopen after Setup; relaunch is not implemented.
-- Windows x64 was not physically rerun for this candidate.
+- Windows x64 installation, manual profile import, action discovery, slideshow rotation, and clock suppression passed on a physical D200.
+- Windows automated verification passed 42/42 Node tests and 30/30 available Python tests; 2
+  production-shape profile tests remain skipped because their optional external fixture was absent.
 - macOS arm64 packages were statically validated only; Apple Silicon was not physically tested.
 - Publication, upload, GitHub release creation, commit, push, and remote changes were not performed.
