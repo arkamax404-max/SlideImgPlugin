@@ -3,7 +3,16 @@
   "studio": {
     "path": "C:\\Program Files (x86)\\UlanziDeck\\UlanziDeck.exe",
     "fileVersion": "3.2.11.0",
-    "sha256": "eee2458802e36170e8b09fe58d5d8f9b616813ee362fc83ac99884b3615509c4"
+    "sha256": "eee2458802e36170e8b09fe58d5d8f9b616813ee362fc83ac99884b3615509c4",
+    "macos": {
+      "bundleIdentifiers": ["ulanzi.UlanziStudio"],
+      "processNames": ["UlanziDeck"],
+      "dataRoots": [
+        "Library/Application Support/Ulanzi/UlanziDeck"
+      ],
+      "profileStores": ["ProfilesV2"],
+      "relaunch": "manual"
+    }
   },
   "state": {
     "settingSource": "Config\\setting_source.json",
