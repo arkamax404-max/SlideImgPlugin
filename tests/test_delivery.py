@@ -316,7 +316,7 @@ $restoreTemp=$manifest+'.restore';Copy-Item -LiteralPath $backup -Destination $r
         native={name for name in builder.RUNTIME_PACKAGES if name.startswith("@img/sharp-")}
         self.assertEqual(native,{"@img/sharp-win32-x64","@img/sharp-darwin-x64","@img/sharp-libvips-darwin-x64","@img/sharp-darwin-arm64","@img/sharp-libvips-darwin-arm64"})
         self.assertIn("__pycache__",builder.SOURCE_EXCLUDED_PARTS);self.assertIn(".pytest_cache",builder.SOURCE_EXCLUDED_PARTS)
-        source=(ROOT/"tools"/"build_release.py").read_text(encoding="utf-8");self.assertNotIn("npm install",source);self.assertIn("entry[\"integrity\"]",source);self.assertIn("pe_machine",source);self.assertIn("macho_cpu",source)
+        source=(ROOT/"tools"/"build_release.py").read_text(encoding="utf-8");self.assertNotIn("npm install",source);self.assertIn("entry[\"integrity\"]",source);self.assertIn("pe_machine",source);self.assertIn("macho_cpu",source);self.assertIn('newline="\\n"',source)
 
     def test_every_generated_slideshow_assignment_hides_the_clock(self):
         plugin=PLUGIN

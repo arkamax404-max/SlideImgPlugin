@@ -256,7 +256,7 @@ def build_artifacts():
     helpers = [(path, f"ImageSlideSetupHelper/{path.relative_to(PLUGIN / 'helper').as_posix()}") for path in (PLUGIN / "helper").rglob("*") if path.is_file()]
     zip_tree(ARTIFACTS[2], helpers)
     text = "".join(f"{sha256(path.read_bytes())}  {path.relative_to(ROOT).as_posix()}\n" for path in DELIVERY_FILES)
-    (ROOT / "SHA256SUMS.txt").write_text(text, encoding="utf-8")
+    (ROOT / "SHA256SUMS.txt").write_text(text, encoding="utf-8", newline="\n")
     verify_delivery_privacy((*DELIVERY_FILES, ROOT / "SHA256SUMS.txt"))
 
 
