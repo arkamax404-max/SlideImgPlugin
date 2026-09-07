@@ -61,7 +61,7 @@ RUNTIME_PACKAGES = {
     "@img/sharp-libvips-darwin-arm64": "1.3.3",
 }
 EXCLUDED_PARTS = {".git", ".codegraph", ".build-package", "node_modules", "test", "tests", "docs", "examples", "install", ".github"}
-SOURCE_EXCLUDED_PARTS = {".git", ".codegraph", ".build-package", "node_modules"}
+SOURCE_EXCLUDED_PARTS = {".git", ".codegraph", ".build-package", "node_modules", "__pycache__", ".pytest_cache"}
 EXCLUDED_FILES = {".DS_Store", ".npmignore"}
 GENERATED_NAMES = {path.name for path in ARTIFACTS} | {
     "ImageSlide.ulanziDeckProfile",
