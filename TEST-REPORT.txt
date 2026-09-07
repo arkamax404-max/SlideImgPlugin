@@ -1,4 +1,4 @@
-ImageSlidePlugin 0.4.0 universal release verification
+ImageSlidePlugin 0.5.0 universal release verification
 ================================================================
 
 Scope
@@ -6,53 +6,57 @@ Scope
 - One source tree and one plugin ZIP for Windows x64, macOS x64, and macOS arm64.
 - Stable plugin/action UUIDs and preserved Windows helper files/behavior.
 - macOS Setup is ProfilesV2-only and requires manual Studio reopen.
-- No live Studio profile, D200 state, or installed non-disposable plugin was modified.
+- Configurable localized date/time screen between images or as an exclusive clock-only display.
+- The active Windows plugin was backed up and updated for physical validation; packaging did not modify the live profile or D200 state.
 
-Local work units (no commits created)
--------------------------------------
-1. Universal platform contract and Setup hardening
+Release work units
+------------------
+1. Localized date/time display
+   - Periodic insertion with configurable image frequency and duration, continuous clock-only mode,
+     localized weekday, system date/time conventions, and explicit date-order overrides.
+   - Focused verification: Node source tests 45/45. Runtime boundary: physical Windows D200 acceptance.
+   - Rollback boundary: slideshow runtime, Property Inspector, settings, documentation, and tests.
+2. Universal platform contract and Setup hardening
    - Official `windows`/`mac` manifest and Store platform tokens, Darwin dispatch,
      ProfilesV2-only claims, manual reopen, and tested post-rename rollback.
-   - Focused verification: Node source tests 42/42. Runtime boundary: temp-fixture helper lifecycle.
+   - Focused verification: Node source tests 45/45. Runtime boundary: temp-fixture helper lifecycle.
    - Rollback boundary: manifest/store metadata, macOS helper, setup dispatch, and their Node tests.
-2. Reproducible universal packaging and delivery gates
+3. Reproducible universal packaging and delivery gates
    - Lock-integrity downloads, explicit target inventory, PE/Mach-O inspection, deterministic ZIPs,
      platform-aware Python tests, and Studio Node x64 decode harness.
-   - Focused verification: stage PASS; Python final 17 passed/15 skipped; Studio Node harness PASS.
+   - Focused verification: stage PASS; Python final 30 passed/2 skipped; Studio Node harness PASS.
    - The optional production-shape Windows fixture is repository-relative by default and can be
    supplied with IMAGESLIDE_WINDOWS_PROFILE_FIXTURE and IMAGESLIDE_WINDOWS_PROFILE_ID; only
    fixture-dependent tests skip when either value is unavailable.
    - Delivery-wide privacy checks inspect standalone files plus every member of the plugin, source,
      helper, and profile archives. The portable profile receipt omits all source identity provenance.
    - Rollback boundary: tools/profile_tool.py, tools/build_release.py, and tests/test_delivery.py.
-3. Release documentation and local artifacts
+4. Release documentation and local artifacts
    - README, MIGRATION, Store copy, TEST-REPORT, three ZIPs, and SHA256SUMS.
    - Focused verification: deterministic rebuild produced identical ZIP hashes; ZIP/checksum readback PASS.
    - Rollback boundary: documentation and generated local artifacts only.
 
-Node source tests: PASS (42/42)
+Node source tests: PASS (45/45)
 --------------------------------
-Command: npm ci --ignore-scripts --include=optional && node --test
-Environment: repository source package; Node v26.3.1; npm 11.16.0.
-- Protocol, slideshow, image filtering/resizing, watcher, settings, and lifecycle tests passed.
+Command: npm test
+Environment: Windows repository source package; Node v24.15.0; npm 10.8.0.
+- Protocol, slideshow, image filtering/resizing, localized clock modes, watcher, settings, and lifecycle tests passed.
 - Windows helper dispatch and safety assertions passed without changing the PowerShell helper.
 - Darwin dispatch, ProfilesV2-only target resolution, Setup/Restore lineage, bounded diagnostics,
   manual-reopen state, and post-rename byte-for-byte rollback tests passed.
 
-Python source/delivery tests before artifact build: PASS (16 passed, 16 skipped)
+Python source/delivery tests before artifact build: PASS (29 passed, 3 skipped)
 ----------------------------------------------------------------------------
-Command: IMAGESLIDE_SKIP_ARTIFACT_TESTS=1 python3 -m unittest discover -s tests -v
-Environment: macOS Python 3.9.6.
-- Deterministic platform-independent manifest, metadata, identity, helper-inventory, profile,
-  portable-receipt generation, safety-marker, packaging-policy, and documentation assertions passed.
-- 14 Windows PowerShell tests (one also needs the optional profile fixture), one additional
-  fixture-only test, and the pre-build artifact test were skipped. powershell.exe and
-  IMAGESLIDE_WINDOWS_PROFILE_FIXTURE/IMAGESLIDE_WINDOWS_PROFILE_ID are unavailable on this host.
-- The artifact-readback test was intentionally skipped until source tests passed.
+Command: IMAGESLIDE_SKIP_ARTIFACT_TESTS=1 python -m unittest discover -s tests
+Environment: Windows Python 3.14.4.
+- Manifest, metadata, identity, helper, profile, receipt, safety, packaging-policy, and Windows
+  PowerShell fixture assertions passed.
+- Two optional production-shape profile tests were skipped because their external fixture was not
+  configured. The artifact-readback test was intentionally skipped until the clean build completed.
 
 Universal package stage: PASS
 -----------------------------
-Command: python3 tools/build_release.py --stage-only
+Command: python tools/build_release.py --stage-only
 - Lockfile URL/version/SHA-512 integrity verified for every staged package.
 - Runtime inventory is limited to sharp 0.35.4, ws 8.21.3, required JS dependencies, and these
   native targets: win32-x64, darwin-x64, darwin-arm64 plus matching libvips payloads.
@@ -68,11 +72,11 @@ Result: Node v20.18.0 x64 loaded sharp 0.35.4/libvips 8.18.6 and decoded/resized
 
 Final artifact verification: PASS
 ---------------------------------
-Command: python3 tools/build_release.py
+Command: python tools/build_release.py
 Result: universal stage verified; plugin, source, and helper ZIPs built.
 
-Command: python3 -m unittest discover -s tests -v
-Result: PASS (17 passed, 15 skipped).
+Command: python -m unittest discover -s tests
+Result: PASS (30 passed, 2 skipped).
 - One plugin ZIP root, all target native packages, source/helper ZIP CRCs, stable action/profile
   identity, and every SHA256SUMS entry were verified.
 - All 12 checksummed delivery files plus SHA256SUMS were scanned directly; ZIP and profile members
@@ -81,8 +85,7 @@ Result: PASS (17 passed, 15 skipped).
   package/profile/action IDs, and exact manifest location without retaining source identity fields.
 - The source ZIP excludes generated profile/receipt payloads. Generic documented installation paths
   and synthetic test paths and IDs remain intentionally present.
-- The final 15 skips are 14 Windows PowerShell tests (one also needs the optional profile fixture)
-  plus one fixture-only test; their platform-independent safety and preservation assertions passed.
+- The final two skips require the optional external production-shape Windows profile fixture.
 
 Physical validation status and limitations
 ------------------------------------------
@@ -92,7 +95,9 @@ Physical validation status and limitations
 - macOS clock overlay can remain visible; this is an accepted release-candidate limitation.
 - macOS requires manual Studio reopen after Setup; relaunch is not implemented.
 - Windows x64 installation, manual profile import, action discovery, slideshow rotation, and clock suppression passed on a physical D200.
-- Windows automated verification passed 42/42 Node tests and 30/30 available Python tests; 2
+- Periodic date/time insertion, localized/system and explicit date formats, bold clock typography,
+  and continuous date/time-only mode were accepted on the physical Windows D200.
+- Windows automated verification passed 45/45 Node tests and 30/30 available Python tests; 2
   production-shape profile tests remain skipped because their optional external fixture was absent.
 - macOS arm64 packages were statically validated only; Apple Silicon was not physically tested.
-- Publication, upload, GitHub release creation, commit, push, and remote changes were not performed.
+- Publication and upload occur only after this report, the clean artifacts, and their checksums pass.
