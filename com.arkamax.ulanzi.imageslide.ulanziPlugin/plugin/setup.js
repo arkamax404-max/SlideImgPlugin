@@ -5,7 +5,7 @@ import { basename, join } from "node:path";
 import { homedir } from "node:os";
 
 export const SETUP_UUID="com.arkamax.ulanzi.imageslide.setup";
-export const PLUGIN_VERSION="0.5.0";
+export const PLUGIN_VERSION="0.5.1";
 const REQUEST_SCHEMA="com.arkamax.ulanzi.imageslide.setup-request/v5";
 const FAILURE_CODES=new Set([
   "PROFILE_NOT_FOUND","PROFILE_AMBIGUOUS","SETUP_INSTANCE_NOT_FOUND","PAGE_INVALID","SLOT_UNRELATED",
@@ -37,9 +37,12 @@ function safeRecord(record){
   if(!["started","failed","prepared","success","idempotent","restored"].includes(status))return null;
   if(!PHASES.has(phase))return null;
   const handshakeId=typeof record?.handshakeId==="string"&&/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(record.handshakeId)?record.handshakeId:null;
-  return {code,status,phase,handshakeId};
+  const result={code,status,phase,handshakeId};
+  if(/^[0-9]{1,2}_[0-9]{1,2}$/.test(record?.setupKey)&&record.setupKey!=="3_2"&&/^[0-9a-f]{64}$/.test(record?.setupActionIdSha256)){result.setupKey=record.setupKey;result.setupActionIdSha256=record.setupActionIdSha256}
+  return result;
 }
 function normalizeOperation(value){return ["install","repair","restore"].includes(value)?value:null}
+function diagnosticMatchesBinding(record,binding){return record?.setupKey===binding?.key&&record?.setupActionIdSha256===sha256(binding.actionid.toLowerCase())}
 
 export class SetupService {
   constructor({client,root,platform=process.platform,launcher,localAppData=process.env.LOCALAPPDATA,stateRoot,readDiagnostic,readText,setIntervalFn=setInterval,clearIntervalFn=clearInterval}={}) {
@@ -56,6 +59,7 @@ export class SetupService {
     try{this.persisted=safeRecord(JSON.parse(this.readText(join(this.stateRoot,"last-diagnostic.json"))))}catch{this.persisted=null}
     if(handshakeId&&this.persisted?.handshakeId!==handshakeId){this.persisted=null;return false}
     if(!this.persisted)return false;
+    if(binding&&["started","failed"].includes(this.persisted.status)&&!handshakeId&&!diagnosticMatchesBinding(this.persisted,binding)){this.last={status:"ready",code:"READY",phase:"INITIALIZING"};return false}
     if(this.persisted.status==="prepared"){
       this.last=binding&&this.validPreparedRequest(binding)?{...this.persisted,status:"waiting"}:{status:binding?"failed":"ready",code:binding?"REPREPARE_REQUIRED":"READY",phase:binding?"APPLY_PRECHECK":"INITIALIZING"};
       return this.last.status==="waiting";
@@ -78,7 +82,7 @@ export class SetupService {
       const digest=sha256(requestJson);const sidecar=String(this.readText(join(requestRoot,`${pointer.file}.sha256`))).trim().toLowerCase();
       if(digest!==pointer.sha256||digest!==sidecar)return null;
       const request=JSON.parse(requestJson),expires=Date.parse(request.expiresUtc);
-      const supportedVersion=requireCurrentVersion?request?.pluginVersion===PLUGIN_VERSION:["0.2.0","0.3.0","0.3.1","0.3.2",PLUGIN_VERSION].includes(request?.pluginVersion);
+      const supportedVersion=requireCurrentVersion?request?.pluginVersion===PLUGIN_VERSION:["0.2.0","0.3.0","0.3.1","0.3.2","0.5.0",PLUGIN_VERSION].includes(request?.pluginVersion);
       return request?.schema===REQUEST_SCHEMA&&supportedVersion&&Number.isFinite(expires)&&(!requireFresh||expires>Date.now())&&request.setupKey===binding.key&&request.setupActionIdSha256===sha256(binding.actionid.toLowerCase())?request:null;
     }catch{return null}
   }

@@ -4,7 +4,7 @@
   "Description": "Offline slideshow that automatically resizes images for the Ulanzi D200 center display.",
   "Overview": "Automatically resize and center-crop local images to 458 x 196 without changing the originals.",
   "Author": "Santiago P\u00e9rez",
-  "Version": "0.5.0",
+  "Version": "0.5.1",
   "Icon": "resources/icon.svg",
   "Category": "Arkamax",
   "CategoryIcon": "resources/category.svg",

@@ -12,7 +12,7 @@ Set-StrictMode -Version 2.0
 $ErrorActionPreference='Stop'
 $ActionUuid='com.arkamax.ulanzi.imageslide.slideshow'
 $PluginUuid='com.arkamax.ulanzi.imageslide'
-$PluginVersion='0.5.0'
+$PluginVersion='0.5.1'
 $BuiltIn='com.ulanzi.ulanzideck.smallwindow.window'
 $KnownCodes=@('PROFILE_NOT_FOUND','PROFILE_AMBIGUOUS','SETUP_INSTANCE_NOT_FOUND','PAGE_INVALID','SLOT_UNRELATED','SETTINGS_SCHEMA_UNSUPPORTED','REQUEST_WRITE_FAILED','PROFILE_STORE_UNREADABLE','MANIFEST_INVALID','COMPATIBILITY_UNSUPPORTED','HELPER_PROCESS_FAILED','REPREPARE_REQUIRED','RESTORE_BACKUP_NOT_FOUND','RESTORE_BACKUP_INVALID','RESTORED')
 $KnownPhases=@('INITIALIZING','COMPATIBILITY','COMPAT_PLUGIN_ROOT','COMPAT_MANIFEST_READ','COMPAT_EXE_PATH','COMPAT_VERSION_READ','COMPAT_HASH_READ','COMPAT_ENV_PATHS','SETTINGS_READ','SETTINGS_SCHEMA','V2_ENUMERATION','V1_FALLBACK','DEVICE_PROFILE_MATCH','PAGE_READ','TARGET_RESOLUTION','RESTORE_RESOLUTION','SLOT_VALIDATION','REQUEST_WRITE','APPLY_PRECHECK','BACKUP','PATCH_WRITE','RESTORE_WRITE','READBACK','RECEIPT','RELAUNCH')
@@ -68,7 +68,9 @@ $diagnosticPath=$null
 function WriteDiagnostic([string]$Status,[string]$Code,[string]$Phase,[string]$Category='NONE'){
   if($null-eq$diagnosticPath){return}
   if($Phase-notin$KnownPhases){$Phase='INITIALIZING'};if($Category-notin$KnownCategories){$Category='UNEXPECTED'}
-  $record=[ordered]@{schema='com.arkamax.ulanzi.imageslide.setup-diagnostic/v2';status=$Status;code=$Code;phase=$Phase;timestampUtc=[DateTime]::UtcNow.ToString('o');category=$Category}
+  $record=[ordered]@{schema='com.arkamax.ulanzi.imageslide.setup-diagnostic/v3';status=$Status;code=$Code;phase=$Phase;timestampUtc=[DateTime]::UtcNow.ToString('o');category=$Category}
+  $recordBindingHash=$(if(ValidUuid $SetupActionId){ActionIdHash $SetupActionId}else{$variable=Get-Variable -Name bindingHash -Scope Script -ErrorAction SilentlyContinue;if($null-ne$variable){[string]$variable.Value}else{''}})
+  if((ValidNormalKey $PressedKey)-and$recordBindingHash-match'^[0-9a-f]{64}$'){$record['setupKey']=$PressedKey;$record['setupActionIdSha256']=$recordBindingHash}
   try{WriteUtf8 $diagnosticPath ($record|ConvertTo-Json -Depth 4)}catch{}
 }
 
@@ -124,24 +126,47 @@ function ReceiptTargetMatches($Receipt,$Target){
   $rt=Optional $Receipt 'target';if($null-eq$rt){return $false}
   ([string](Optional $rt 'store')-eq$Target.Store-and[string](Optional $rt 'groupId')-eq$Target.GroupId-and[string](Optional $rt 'pageId')-eq$Target.PageId-and[string](Optional $rt 'key')-eq'3_2')
 }
+function NewSlideshowEntry([string]$ActionId){
+  [ordered]@{Action=$ActionUuid;ActionID=$ActionId;ActionParam=[ordered]@{SmallViewMode=2};LinkedTitle=$true;Name='Image Slideshow';Plugin=[ordered]@{Name='Image Slideshow';UUID=$PluginUuid;Version=$PluginVersion};State=0;ViewParam=@([ordered]@{Icon='';IconRel='';Name='Image Slideshow'})}
+}
+function CloneJson($Value){($Value|ConvertTo-Json -Depth 30)|ConvertFrom-Json}
+function CenterFingerprint($Center){
+  try{$copy=CloneJson $Center;$actionId=[string](Required $copy 'ActionID' 'PAGE_INVALID' 'SCHEMA');if([string](Required $copy 'Action' 'PAGE_INVALID' 'SCHEMA')-ne$ActionUuid-or-not(ValidUuid $actionId)){return $null};$expected=NewSlideshowEntry $actionId;$plugin=Optional $copy 'Plugin';if($null-eq$plugin){return $null};$pluginJson=CanonicalJson $plugin;$expectedPluginJson=CanonicalJson $expected.Plugin;if($pluginJson-ne$expectedPluginJson-and$pluginJson-ne'{}'){return $null};$copy.Plugin=[pscustomobject]@{};$expected.Plugin=[pscustomobject]@{};if((CanonicalJson $copy)-ne(CanonicalJson $expected)){return $null};RequestHash (CanonicalJson $copy)}catch{return $null}
+}
+function NormalizedPatchedPage($Document,[string]$SetupKey){
+  try{
+    $copy=CloneJson $Document;$large=@(LargeDisplayControllers $copy);if($large.Count-ne1){return $null};$actions=Required $large[0] 'Actions' 'PAGE_INVALID' 'SCHEMA';$center=Required $actions '3_2' 'PAGE_INVALID' 'SCHEMA';$actionId=[string](Required $center 'ActionID' 'PAGE_INVALID' 'SCHEMA');if([string](Required $center 'Action' 'PAGE_INVALID' 'SCHEMA')-ne$ActionUuid-or-not(ValidUuid $actionId)){return $null}
+    $expected=NewSlideshowEntry $actionId;$plugin=Optional $center 'Plugin';if($null-eq$plugin){return $null};$pluginJson=CanonicalJson $plugin;$expectedPluginJson=CanonicalJson $expected.Plugin;if($pluginJson-ne$expectedPluginJson-and$pluginJson-ne'{}'){return $null};$center.Plugin=[pscustomobject]@{};$expected.Plugin=[pscustomobject]@{};if((CanonicalJson $center)-ne(CanonicalJson $expected)){return $null}
+    $setupControllers=@(SetupInstanceControllers $copy $SetupKey);if($setupControllers.Count-ne1){return $null};$setupActions=Required $setupControllers[0] 'Actions' 'PAGE_INVALID' 'SCHEMA';$setupEntry=Required $setupActions $SetupKey 'PAGE_INVALID' 'SCHEMA';if([string](Required $setupEntry 'Action' 'PAGE_INVALID' 'SCHEMA')-ne'com.arkamax.ulanzi.imageslide.setup'){return $null};$params=Optional $setupEntry 'ActionParam'
+    if($null-ne$params){$operation=Optional $params 'operation';if($null-ne$operation){if([string]$operation-notin@('install','repair','restore')){return $null};$params.PSObject.Properties.Remove('operation')};if(@($params.PSObject.Properties).Count-ne0){return $null};$setupEntry.PSObject.Properties.Remove('ActionParam')}
+    CanonicalJson $copy
+  }catch{return $null}
+}
+function CurrentMatchesPatchedReceipt($Receipt,[string]$BackupPath,[string]$CurrentPath,[string]$SetupKey){
+  try{
+    $expected=ReadJson $BackupPath 'RESTORE_BACKUP_INVALID' 'INTEGRITY';$current=ReadJson $CurrentPath 'RESTORE_BACKUP_INVALID' 'INTEGRITY';$currentPads=@(LargeDisplayControllers $current);if($currentPads.Count-ne1){return $false};$currentActions=Required $currentPads[0] 'Actions' 'PAGE_INVALID' 'SCHEMA';$currentCenter=Required $currentActions '3_2' 'PAGE_INVALID' 'SCHEMA';$actionId=[string](Required $currentCenter 'ActionID' 'PAGE_INVALID' 'SCHEMA');if(-not(ValidUuid $actionId)){return $false}
+    $expectedPads=@(LargeDisplayControllers $expected);if($expectedPads.Count-ne1){return $false};$expectedActions=Required $expectedPads[0] 'Actions' 'PAGE_INVALID' 'SCHEMA';$beforeCenter=Required $expectedActions '3_2' 'PAGE_INVALID' 'SCHEMA';if([string](Required $beforeCenter 'Action' 'PAGE_INVALID' 'SCHEMA')-ne$BuiltIn){return $false};$expectedActions|Add-Member -NotePropertyName '3_2' -NotePropertyValue (NewSlideshowEntry $actionId) -Force
+    $fingerprint=Optional $Receipt 'centerActionFingerprintSha256';if($null-ne$fingerprint-and([string]$fingerprint-notmatch'^[0-9a-f]{64}$'-or[string]$fingerprint-ne(CenterFingerprint $currentCenter))){return $false};$normalizedCurrent=NormalizedPatchedPage $current $SetupKey;$normalizedExpected=NormalizedPatchedPage $expected $SetupKey;$null-ne$normalizedCurrent-and$normalizedCurrent-eq$normalizedExpected
+  }catch{return $false}
+}
 function FindRestoreCandidate($Target){
   SetPhase 'RESTORE_RESOLUTION';if(-not(Test-Path -LiteralPath $backupRoot -PathType Container)){Fail 'RESTORE_BACKUP_NOT_FOUND' 'INTEGRITY'}
-  try{$runs=@(Get-ChildItem -LiteralPath $backupRoot -Directory -ErrorAction Stop)}catch{Fail 'RESTORE_BACKUP_NOT_FOUND' 'ACCESS'};$candidates=@()
+  try{$runs=@(Get-ChildItem -LiteralPath $backupRoot -Directory -ErrorAction Stop)}catch{Fail 'RESTORE_BACKUP_NOT_FOUND' 'ACCESS'};$legacyCandidates=@();$fingerprintedCandidates=@()
   foreach($run in $runs){
     $runId=[string](Optional $run 'Name');if(-not(ValidSafeSegment $runId)){continue};$runRoot=Under ([string](Optional $run 'FullName')) $backupRoot;$receiptPath=Under (Join-Path $runRoot 'receipt.json') $runRoot;$backupPath=Under (Join-Path $runRoot 'manifest.before.json') $runRoot
     if(-not(Test-Path -LiteralPath $receiptPath -PathType Leaf)-or-not(Test-Path -LiteralPath $backupPath -PathType Leaf)){continue};try{$receipt=Get-Content -LiteralPath $receiptPath -Raw -Encoding UTF8|ConvertFrom-Json}catch{continue}
     if([string](Optional $receipt 'schema')-ne'com.arkamax.ulanzi.imageslide.setup-receipt/v1'-or[string](Optional $receipt 'operation')-notin@('apply-or-repair','patch')-or[string](Optional $receipt 'result')-ne'success'-or[string](Optional $receipt 'action')-ne$ActionUuid-or-not(ReceiptTargetMatches $receipt $Target)){continue}
     $before=[string](Optional $receipt 'beforeSha256');$after=[string](Optional $receipt 'afterSha256');$backupHash=[string](Optional $receipt 'backupSha256');if($before-notmatch'^[0-9a-f]{64}$'-or$after-notmatch'^[0-9a-f]{64}$'-or$backupHash-ne$before-or$before-eq$after){continue}
-    if((Hash $backupPath)-ne$backupHash-or(Hash $Target.Manifest)-ne$after){continue};$candidates+=,[pscustomobject]@{RunId=$runId;Receipt=$receiptPath;Backup=$backupPath;ReceiptSha256=(Hash $receiptPath);BeforeSha256=$before;AfterSha256=$after;BackupSha256=$backupHash}
+    if((Hash $backupPath)-ne$backupHash){continue};$currentHash=Hash $Target.Manifest;$fingerprint=Optional $receipt 'centerActionFingerprintSha256';if($null-ne$fingerprint){if(-not(CurrentMatchesPatchedReceipt $receipt $backupPath $Target.Manifest $PressedKey)){continue}}elseif($currentHash-ne$after-and-not(CurrentMatchesPatchedReceipt $receipt $backupPath $Target.Manifest $PressedKey)){continue};$candidate=[pscustomobject]@{RunId=$runId;Receipt=$receiptPath;Backup=$backupPath;ReceiptSha256=(Hash $receiptPath);BeforeSha256=$before;AfterSha256=$after;BackupSha256=$backupHash};if($null-ne$fingerprint){$fingerprintedCandidates+=,$candidate}else{$legacyCandidates+=,$candidate}
   }
-  if($candidates.Count-eq0){Fail 'RESTORE_BACKUP_NOT_FOUND' 'INTEGRITY'};if($candidates.Count-gt1){Fail 'PROFILE_AMBIGUOUS' 'AMBIGUITY'};return $candidates[0]
+  $candidates=@($legacyCandidates);if(@($fingerprintedCandidates).Count-gt0){$candidates=@($fingerprintedCandidates)};if(@($candidates).Count-eq0){Fail 'RESTORE_BACKUP_NOT_FOUND' 'INTEGRITY'};if(@($candidates).Count-gt1){Fail 'PROFILE_AMBIGUOUS' 'AMBIGUITY'};return @($candidates)[0]
 }
 function ResolveRequestedRestore($Target,$Restore){
   SetPhase 'RESTORE_RESOLUTION';$runId=[string](Required $Restore 'runId' 'RESTORE_BACKUP_INVALID' 'INTEGRITY');if(-not(ValidSafeSegment $runId)){Fail 'RESTORE_BACKUP_INVALID' 'INTEGRITY'}
   $runRoot=Under (Join-Path $backupRoot $runId) $backupRoot;$receiptPath=Under (Join-Path $runRoot 'receipt.json') $runRoot;$backupPath=Under (Join-Path $runRoot 'manifest.before.json') $runRoot;if(-not(Test-Path $receiptPath)-or-not(Test-Path $backupPath)){Fail 'RESTORE_BACKUP_NOT_FOUND' 'INTEGRITY'}
   $receiptSha=[string](Required $Restore 'receiptSha256' 'RESTORE_BACKUP_INVALID' 'INTEGRITY');$backupSha=[string](Required $Restore 'backupSha256' 'RESTORE_BACKUP_INVALID' 'INTEGRITY');$before=[string](Required $Restore 'beforeSha256' 'RESTORE_BACKUP_INVALID' 'INTEGRITY');$after=[string](Required $Restore 'afterSha256' 'RESTORE_BACKUP_INVALID' 'INTEGRITY');if(@($receiptSha,$backupSha,$before,$after)|Where-Object{$_-notmatch'^[0-9a-f]{64}$'}){Fail 'RESTORE_BACKUP_INVALID' 'INTEGRITY'}
-  if((Hash $receiptPath)-ne$receiptSha-or(Hash $backupPath)-ne$backupSha-or$backupSha-ne$before-or(Hash $Target.Manifest)-ne$after-or$before-eq$after){Fail 'RESTORE_BACKUP_INVALID' 'INTEGRITY'}
-  $receipt=ReadJson $receiptPath 'RESTORE_BACKUP_INVALID' 'INTEGRITY';if([string](Required $receipt 'schema' 'RESTORE_BACKUP_INVALID' 'INTEGRITY')-ne'com.arkamax.ulanzi.imageslide.setup-receipt/v1'-or[string](Required $receipt 'operation' 'RESTORE_BACKUP_INVALID' 'INTEGRITY')-notin@('apply-or-repair','patch')-or[string](Required $receipt 'result' 'RESTORE_BACKUP_INVALID' 'INTEGRITY')-ne'success'-or[string](Required $receipt 'action' 'RESTORE_BACKUP_INVALID' 'INTEGRITY')-ne$ActionUuid-or-not(ReceiptTargetMatches $receipt $Target)-or[string](Required $receipt 'beforeSha256' 'RESTORE_BACKUP_INVALID' 'INTEGRITY')-ne$before-or[string](Required $receipt 'afterSha256' 'RESTORE_BACKUP_INVALID' 'INTEGRITY')-ne$after-or[string](Required $receipt 'backupSha256' 'RESTORE_BACKUP_INVALID' 'INTEGRITY')-ne$backupSha){Fail 'RESTORE_BACKUP_INVALID' 'INTEGRITY'}
+  if((Hash $receiptPath)-ne$receiptSha-or(Hash $backupPath)-ne$backupSha-or$backupSha-ne$before-or$before-eq$after){Fail 'RESTORE_BACKUP_INVALID' 'INTEGRITY'}
+  $receipt=ReadJson $receiptPath 'RESTORE_BACKUP_INVALID' 'INTEGRITY';if([string](Required $receipt 'schema' 'RESTORE_BACKUP_INVALID' 'INTEGRITY')-ne'com.arkamax.ulanzi.imageslide.setup-receipt/v1'-or[string](Required $receipt 'operation' 'RESTORE_BACKUP_INVALID' 'INTEGRITY')-notin@('apply-or-repair','patch')-or[string](Required $receipt 'result' 'RESTORE_BACKUP_INVALID' 'INTEGRITY')-ne'success'-or[string](Required $receipt 'action' 'RESTORE_BACKUP_INVALID' 'INTEGRITY')-ne$ActionUuid-or-not(ReceiptTargetMatches $receipt $Target)-or[string](Required $receipt 'beforeSha256' 'RESTORE_BACKUP_INVALID' 'INTEGRITY')-ne$before-or[string](Required $receipt 'afterSha256' 'RESTORE_BACKUP_INVALID' 'INTEGRITY')-ne$after-or[string](Required $receipt 'backupSha256' 'RESTORE_BACKUP_INVALID' 'INTEGRITY')-ne$backupSha){Fail 'RESTORE_BACKUP_INVALID' 'INTEGRITY'};$currentHash=Hash $Target.Manifest;$fingerprint=Optional $receipt 'centerActionFingerprintSha256';if($null-ne$fingerprint){if(-not(CurrentMatchesPatchedReceipt $receipt $backupPath $Target.Manifest $PressedKey)){Fail 'RESTORE_BACKUP_INVALID' 'INTEGRITY'}}elseif($currentHash-ne$after-and-not(CurrentMatchesPatchedReceipt $receipt $backupPath $Target.Manifest $PressedKey)){Fail 'RESTORE_BACKUP_INVALID' 'INTEGRITY'}
   [pscustomobject]@{RunId=$runId;Receipt=$receiptPath;Backup=$backupPath;BeforeSha256=$before;AfterSha256=$after;BackupSha256=$backupSha}
 }
 
@@ -255,7 +280,7 @@ try{
     }else{
       if($currentAction-ne$BuiltIn){Fail 'SLOT_UNRELATED' 'INTEGRITY'}
       SetPhase 'PATCH_WRITE'
-      $entry=[ordered]@{Action=$ActionUuid;ActionID=[guid]::NewGuid().ToString();ActionParam=[ordered]@{SmallViewMode=2};LinkedTitle=$true;Name='Image Slideshow';Plugin=[ordered]@{Name='Image Slideshow';UUID=$PluginUuid;Version=$PluginVersion};State=0;ViewParam=@([ordered]@{Icon='';IconRel='';Name='Image Slideshow'})}
+      $entry=NewSlideshowEntry ([guid]::NewGuid().ToString())
       $actions|Add-Member -NotePropertyName '3_2' -NotePropertyValue $entry -Force;$temp=Under (Join-Path (Split-Path -Parent $manifest) ('.imageslide-'+[guid]::NewGuid().ToString('N')+'.tmp')) (Split-Path -Parent $manifest)
       WriteUtf8 $temp ($doc|ConvertTo-Json -Depth 30);SetPhase 'READBACK';$check=ReadJson $temp 'MANIFEST_INVALID' 'SCHEMA';$checkPads=@(LargeDisplayControllers $check)
       if($checkPads.Count-ne1){Fail 'PAGE_INVALID' 'SCHEMA'};$checkActions=Required $checkPads[0] 'Actions' 'PAGE_INVALID' 'SCHEMA';$checkEntry=Required $checkActions '3_2' 'PAGE_INVALID' 'SCHEMA';$checkParam=Required $checkEntry 'ActionParam' 'PAGE_INVALID' 'SCHEMA';if([string](Required $checkEntry 'Action' 'PAGE_INVALID' 'SCHEMA')-ne$ActionUuid-or[int](Required $checkParam 'SmallViewMode' 'PAGE_INVALID' 'SCHEMA')-ne2){Fail 'PAGE_INVALID' 'INTEGRITY'}
@@ -265,7 +290,7 @@ try{
     SetPhase 'READBACK';$after=ReadJson $manifest 'MANIFEST_INVALID' 'SCHEMA';$afterPads=@(LargeDisplayControllers $after);if($afterPads.Count-ne1){Fail 'PAGE_INVALID' 'SCHEMA'};$afterActions=Required $afterPads[0] 'Actions' 'PAGE_INVALID' 'SCHEMA';$afterEntry=Required $afterActions '3_2' 'PAGE_INVALID' 'SCHEMA';$expectedAfterAction=$(if($requestedOperation-eq'restore'){$BuiltIn}else{$ActionUuid});if([string](Required $afterEntry 'Action' 'PAGE_INVALID' 'SCHEMA')-ne$expectedAfterAction){Fail 'PAGE_INVALID' 'INTEGRITY'};if($requestedOperation-ne'restore'){$afterParam=Required $afterEntry 'ActionParam' 'PAGE_INVALID' 'SCHEMA';if([int](Required $afterParam 'SmallViewMode' 'PAGE_INVALID' 'SCHEMA')-ne2){Fail 'PAGE_INVALID' 'INTEGRITY'}}
     if($requestedOperation-eq'restore'-and(Hash $manifest)-ne$restoreCandidate.BeforeSha256){Fail 'RESTORE_BACKUP_INVALID' 'INTEGRITY'}
     SetPhase 'RECEIPT'
-    $afterHash=Hash $manifest;$receipt=[ordered]@{schema='com.arkamax.ulanzi.imageslide.setup-receipt/v1';operation=$requestedOperation;result=$result;studio=[ordered]@{fileVersion=$actualVersion;sha256=$actualHash};target=[ordered]@{store=$target.Store;groupId=$target.GroupId;pageId=$target.PageId;key='3_2'};beforeSha256=$beforeHash;afterSha256=$afterHash;backupSha256=(Hash $backup);action=$ActionUuid;timestampUtc=[DateTime]::UtcNow.ToString('o')}
+    $afterHash=Hash $manifest;$receipt=[ordered]@{schema='com.arkamax.ulanzi.imageslide.setup-receipt/v1';operation=$requestedOperation;result=$result;studio=[ordered]@{fileVersion=$actualVersion;sha256=$actualHash};target=[ordered]@{store=$target.Store;groupId=$target.GroupId;pageId=$target.PageId;key='3_2'};beforeSha256=$beforeHash;afterSha256=$afterHash;backupSha256=(Hash $backup);action=$ActionUuid;timestampUtc=[DateTime]::UtcNow.ToString('o')};if($requestedOperation-ne'restore'){$fingerprint=CenterFingerprint $afterEntry;if($null-eq$fingerprint){Fail 'PAGE_INVALID' 'INTEGRITY'};$receipt['centerActionFingerprintSha256']=$fingerprint}
     WriteUtf8 (Join-Path $runRoot 'receipt.json') ($receipt|ConvertTo-Json -Depth 10);SetPhase 'RELAUNCH';$successCode=$(if($result-eq'restored'){'RESTORED'}else{'SUCCESS'});WriteDiagnostic $result $successCode $CurrentPhase;Start-Process -FilePath $studio -WindowStyle Normal
     Write-Output ('IMAGESLIDE_DIAGNOSTIC:'+$successCode+':'+$CurrentPhase+':NONE');exit 0
   }catch{

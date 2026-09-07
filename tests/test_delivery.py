@@ -74,7 +74,7 @@ class DeliveryTests(unittest.TestCase):
         self.assertFalse({"source_package_id","source_profile_id","profile_id_map","input_sha256"}&receipt.keys())
         _,z=tool.read_archive(profile);package_id,_,_,_,profile_ids,_=tool.package_identity(z);entry=json.loads(z.read(receipt["manifest_member"]))["Controllers"][receipt["controller_index"]]["Actions"]["3_2"]
         self.assertEqual(receipt["package_id"],package_id);self.assertIn(receipt["profile_id"],profile_ids);self.assertEqual(receipt["action_id"],entry["ActionID"])
-        self.assertEqual(entry["Action"],"com.arkamax.ulanzi.imageslide.slideshow");self.assertEqual(entry["Plugin"],{"Name":"Image Slideshow","UUID":"com.arkamax.ulanzi.imageslide","Version":"0.5.0"})
+        self.assertEqual(entry["Action"],"com.arkamax.ulanzi.imageslide.slideshow");self.assertEqual(entry["Plugin"],{"Name":"Image Slideshow","UUID":"com.arkamax.ulanzi.imageslide","Version":"0.5.1"})
 
     def test_portable_profile_receipt_generation_is_deterministic(self):
         profile=ROOT/"ImageSlide.ulanziDeckProfile"
@@ -108,6 +108,7 @@ class DeliveryTests(unittest.TestCase):
         for code in ("PROFILE_NOT_FOUND","PROFILE_AMBIGUOUS","PAGE_INVALID","SLOT_UNRELATED","SETTINGS_SCHEMA_UNSUPPORTED","REQUEST_WRITE_FAILED","HELPER_PROCESS_FAILED"):
             self.assertIn(code,helper)
         self.assertIn("last-diagnostic.json",helper);self.assertIn("IMAGESLIDE_DIAGNOSTIC:",helper);self.assertNotIn("profileContents",helper)
+        self.assertIn("CurrentMatchesPatchedReceipt",helper);self.assertIn("NormalizedPatchedPage",helper);self.assertIn("CenterFingerprint",helper);self.assertIn("centerActionFingerprintSha256",helper);self.assertIn("@($params.PSObject.Properties).Count",helper);self.assertIn("fingerprintedCandidates",helper);self.assertIn("legacyCandidates",helper)
 
     def test_apply_precheck_requires_current_versioned_request(self):
         helper=(PLUGIN/"helper"/"Invoke-ImageSlideSetup.ps1").read_text(encoding="utf-8")
@@ -128,7 +129,7 @@ class DeliveryTests(unittest.TestCase):
 $manifest='{quoted(manifest)}';$backup='{quoted(root/"replace-backup.json")}'
 $before=[IO.File]::ReadAllBytes($manifest);$doc=Get-Content -LiteralPath $manifest -Raw -Encoding UTF8|ConvertFrom-Json
 $pads=@($doc.Controllers|Where-Object{{$_.Type-eq'Keypad'-and$null-ne$_.Actions.PSObject.Properties['3_2']}});if($pads.Count-ne1){{throw 'shape'}}
-$entry=[ordered]@{{Action='com.arkamax.ulanzi.imageslide.slideshow';ActionID=[guid]::NewGuid().ToString();ActionParam=[ordered]@{{SmallViewMode=2}};LinkedTitle=$true;Name='Image Slideshow';Plugin=[ordered]@{{Name='Image Slideshow';UUID='com.arkamax.ulanzi.imageslide';Version='0.5.0'}};State=0;ViewParam=@([ordered]@{{Icon='';IconRel='';Name='Image Slideshow'}})}}
+$entry=[ordered]@{{Action='com.arkamax.ulanzi.imageslide.slideshow';ActionID=[guid]::NewGuid().ToString();ActionParam=[ordered]@{{SmallViewMode=2}};LinkedTitle=$true;Name='Image Slideshow';Plugin=[ordered]@{{Name='Image Slideshow';UUID='com.arkamax.ulanzi.imageslide';Version='0.5.1'}};State=0;ViewParam=@([ordered]@{{Icon='';IconRel='';Name='Image Slideshow'}})}}
 $pads[0].Actions|Add-Member -NotePropertyName '3_2' -NotePropertyValue $entry -Force;$temp=$manifest+'.tmp';[IO.File]::WriteAllText($temp,($doc|ConvertTo-Json -Depth 30),(New-Object Text.UTF8Encoding($false)))
 $check=Get-Content -LiteralPath $temp -Raw -Encoding UTF8|ConvertFrom-Json;if($check.Controllers[1].Actions.'3_2'.Action-ne'com.arkamax.ulanzi.imageslide.slideshow'){{throw 'temp-readback'}}
 [IO.File]::Replace($temp,$manifest,$backup);$after=Get-Content -LiteralPath $manifest -Raw -Encoding UTF8|ConvertFrom-Json;$patched=[IO.File]::ReadAllBytes($manifest)
@@ -281,7 +282,7 @@ $restoreTemp=$manifest+'.restore';Copy-Item -LiteralPath $backup -Destination $r
     def test_diagnostic_record_has_privacy_bounded_fields_only(self):
         helper=(PLUGIN/"helper"/"Invoke-ImageSlideSetup.ps1").read_text(encoding="utf-8");setup=(PLUGIN/"plugin"/"setup.js").read_text(encoding="utf-8")
         record=helper[helper.index("$record=[ordered]@"):helper.index("try{WriteUtf8 $diagnosticPath")]
-        self.assertIn("timestampUtc",record);self.assertIn("category",record)
+        self.assertIn("timestampUtc",record);self.assertIn("category",record);self.assertIn("setupKey",record);self.assertIn("setupActionIdSha256",record)
         for forbidden in ("message=","path=","profile=","username=","hostname=","content="):self.assertNotIn(forbidden.lower(),record.lower())
         self.assertIn("setupActionIdSha256=$bindingHash",helper);self.assertNotIn("setupActionId=$SetupActionId",helper)
         self.assertIn('Start-ImageSlideSetup.ps1',setup);self.assertIn('stdio:"ignore"',setup);self.assertNotIn("console.log",setup);self.assertIn("diagnosticResult",setup)
@@ -334,7 +335,7 @@ $restoreTemp=$manifest+'.restore';Copy-Item -LiteralPath $backup -Destination $r
         plugin_root="com.arkamax.ulanzi.imageslide.ulanziPlugin"
         with zipfile.ZipFile(ROOT/(plugin_root+".zip")) as archive:
             self.assertIsNone(archive.testzip());names=archive.namelist();self.assertEqual({Path(n).parts[0] for n in names},{plugin_root})
-            manifest=json.loads(archive.read(plugin_root+"/manifest.json"));self.assertEqual(manifest["Version"],"0.5.0");self.assertEqual(manifest["Author"],"Santiago P\u00e9rez")
+            manifest=json.loads(archive.read(plugin_root+"/manifest.json"));self.assertEqual(manifest["Version"],"0.5.1");self.assertEqual(manifest["Author"],"Santiago P\u00e9rez")
             for name in names:
                 if not name.endswith("/"):self.assertNotIn(b"Get-FileHash",archive.read(name))
             for member in ("plugin/app.js","plugin/images.js","plugin/setup.js","property-inspector/inspector.html","property-inspector/setup.html","helper/Start-ImageSlideSetup.ps1","helper/Invoke-ImageSlideSetup.ps1","helper/Invoke-ImageSlideSetup.mjs","helper/compatibility.json","node_modules/sharp/dist/index.mjs","node_modules/ws/lib/websocket.js","node_modules/@img/sharp-win32-x64/lib/sharp-win32-x64-0.35.4.node","node_modules/@img/sharp-darwin-x64/lib/sharp-darwin-x64-0.35.4.node","node_modules/@img/sharp-libvips-darwin-x64/lib/libvips-cpp.8.18.6.dylib","node_modules/@img/sharp-darwin-arm64/lib/sharp-darwin-arm64-0.35.4.node","node_modules/@img/sharp-libvips-darwin-arm64/lib/libvips-cpp.8.18.6.dylib"):

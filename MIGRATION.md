@@ -52,3 +52,7 @@ On macOS, Setup is deliberately limited to ProfilesV2. Close Studio when prompte
 Version 0.5.0 keeps the plugin UUID, action UUIDs, image settings, Setup backups, receipts, and restore lineage compatible. Existing installations gain an optional localized date/time screen without a settings migration; it is disabled by default.
 
 Use **Show date and time between slides** to configure its image frequency and visible duration. Use **Date and time only** to stop image rotation and folder monitoring while keeping the clock visible. **System default** follows the host language, date order, and 12/24-hour preference on Windows and macOS; explicit `DD/MM/YYYY` and `MM/DD/YYYY` overrides are also available.
+
+## Updating 0.5.0 to 0.5.1
+
+Version 0.5.1 fixes Setup state and Restore lineage across newly created pages and repeated Windows `Install -> Restore` cycles. Existing 0.5.0 backups and receipts remain valid. New Windows patch receipts include a center-action fingerprint, and the helper prefers that stronger lineage over compatible legacy receipts without choosing by timestamp.
