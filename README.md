@@ -4,7 +4,7 @@ Created by **Santiago Pérez**.
 
 ImageSlidePlugin keeps Ulanzi Studio and its plugins intact. It installs **Image Slideshow**, imports an independently identified profile clone, and lets you choose an external image folder from the Property Inspector.
 
-Version **0.4.0** is packaged from one source tree as one universal `*.ulanziPlugin.zip` for Windows x64, macOS x64, and macOS arm64. It automatically center-crops images of other sizes to 458 x 196 in memory while leaving the original files untouched.
+Version **0.5.0** is packaged from one source tree as one universal `*.ulanziPlugin.zip` for Windows x64, macOS x64, and macOS arm64. It automatically center-crops images of other sizes to 458 x 196 in memory while leaving the original files untouched.
 
 An existing successful **0.1.9** Setup patch does not need to be patched again. Select **Restore original** before pressing Setup; 0.2.0 accepts that version's verified `apply-or-repair` receipt and backup, binds them into a new restore request, and restores the exact pre-0.1.9 bytes after Studio closes. Missing, ambiguous, changed, or tampered lineage fails closed.
 
@@ -39,6 +39,21 @@ The Property Inspector provides **Select folder**, interval, loop, alphabetical/
 | Failure | Two bundled sample slides remain available |
 
 The plugin never writes to the selected folder and never logs its full path.
+
+### Show date and time
+
+The date/time screen updates once per second with a large clock and a bold weekday/date line.
+
+| Mode or setting | Behavior |
+|---|---|
+| **Show date and time between slides** | Inserts the clock after the configured number of images |
+| **Every (slides)** | Number of images shown before inserting the clock |
+| **Duration (seconds)** | How long the inserted clock remains visible |
+| **Date and time only** | Disables image rotation, folder rescans, and the image watcher; the clock stays visible |
+| **System default** | Uses the Windows or macOS language, date order, and 12/24-hour preference |
+| `DD/MM/YYYY` / `MM/DD/YYYY` | Overrides date order while retaining the localized weekday and system time format |
+
+Image folder settings remain saved while **Date and time only** is active, so disabling that mode resumes the slideshow without reconfiguration.
 
 Every generated large-display assignment persists `ActionParam.SmallViewMode: 2`. This suppresses the clock on the validated Windows path. **Known macOS limitation:** Studio can still render its clock overlay above the slideshow.
 
@@ -79,6 +94,8 @@ The state machine has only three outcomes: built-in small-window → patch, Imag
 - [ ] `Image Slideshow` is separate from the original `Arkamax` profile.
 - [ ] The large display renders the first valid image immediately.
 - [ ] Images rotate in the selected order and interval.
+- [ ] Periodic date/time mode appears at the selected frequency and duration.
+- [ ] Date/time-only mode keeps the localized clock visible without image rotation.
 - [ ] Atomic file replacement is detected without showing incomplete content.
 - [ ] Empty/deleted/inaccessible folders show bundled fallback slides.
 - [ ] Leaving the active page stops slideshow scheduling and watching.

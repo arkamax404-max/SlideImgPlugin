@@ -7,24 +7,46 @@ export const ACTION_UUID = `${PLUGIN_UUID}.slideshow`;
 export const MIN_INTERVAL_SECONDS = 5;
 export const RESCAN_INTERVAL_MS = 5000;
 export const WATCH_DEBOUNCE_MS = 350;
+export const MAX_DATE_TIME_FREQUENCY = 10000;
+export const MAX_DATE_TIME_DURATION_SECONDS = 3600;
 const IMAGE_EXTENSIONS = new Set([".png", ".jpg", ".jpeg", ".svg"]);
 const TEMP_SUFFIXES = [".tmp", ".temp", ".part", ".crdownload", ".download"];
+const DEFAULT_SETTINGS = { folderPath: "", intervalSeconds: 10, loop: true, sort: "name", showDateTime: false, dateTimeOnly: false, dateTimeEverySlides: 5, dateTimeDurationSeconds: 5, dateFormat: "system" };
 
 export async function loadConfiguration(root) {
   const slides = await Promise.all(["sample-blue.svg", "sample-sunset.svg"].map((name) => loadSlide(join(root, "slides", name))));
-  return { defaults: { folderPath: "", intervalSeconds: 10, loop: true, sort: "name" }, fallbackSlides: slides };
+  return { defaults: { ...DEFAULT_SETTINGS }, fallbackSlides: slides };
 }
 
-export function normalizeSettings(value, defaults = { folderPath: "", intervalSeconds: 10, loop: true, sort: "name" }) {
+export function normalizeSettings(value, defaults = DEFAULT_SETTINGS) {
   const raw = value && typeof value === "object" ? value : {};
   const intervalSeconds = Number(raw.intervalSeconds ?? defaults.intervalSeconds);
   if (!Number.isFinite(intervalSeconds) || intervalSeconds < MIN_INTERVAL_SECONDS || intervalSeconds > 86400) throw new Error(`Interval must be between ${MIN_INTERVAL_SECONDS} and 86400 seconds.`);
   if (raw.loop !== undefined && typeof raw.loop !== "boolean") throw new Error("Loop must be true or false.");
+  if (raw.showDateTime !== undefined && typeof raw.showDateTime !== "boolean") throw new Error("Show date and time must be true or false.");
+  if (raw.dateTimeOnly !== undefined && typeof raw.dateTimeOnly !== "boolean") throw new Error("Date and time only must be true or false.");
+  const dateTimeEverySlides = Number(raw.dateTimeEverySlides ?? defaults.dateTimeEverySlides ?? DEFAULT_SETTINGS.dateTimeEverySlides);
+  if (!Number.isInteger(dateTimeEverySlides) || dateTimeEverySlides < 1 || dateTimeEverySlides > MAX_DATE_TIME_FREQUENCY) throw new Error(`Date and time frequency must be between 1 and ${MAX_DATE_TIME_FREQUENCY} slides.`);
+  const dateTimeDurationSeconds = Number(raw.dateTimeDurationSeconds ?? defaults.dateTimeDurationSeconds ?? DEFAULT_SETTINGS.dateTimeDurationSeconds);
+  if (!Number.isInteger(dateTimeDurationSeconds) || dateTimeDurationSeconds < 1 || dateTimeDurationSeconds > MAX_DATE_TIME_DURATION_SECONDS) throw new Error(`Date and time duration must be between 1 and ${MAX_DATE_TIME_DURATION_SECONDS} seconds.`);
   const sort = raw.sort ?? defaults.sort;
   if (!new Set(["name", "date"]).has(sort)) throw new Error("Sort must be name or date.");
+  const dateFormat = raw.dateFormat ?? defaults.dateFormat ?? DEFAULT_SETTINGS.dateFormat;
+  if (!new Set(["system", "dmy", "mdy"]).has(dateFormat)) throw new Error("Date format must be system, dmy, or mdy.");
   const folderPath = raw.folderPath ?? defaults.folderPath;
   if (typeof folderPath !== "string" || folderPath.length > 32767 || folderPath.includes("\0")) throw new Error("Folder path is invalid.");
-  return { folderPath, intervalSeconds, loop: raw.loop ?? defaults.loop, sort };
+  return { folderPath, intervalSeconds, loop: raw.loop ?? defaults.loop, sort, showDateTime: raw.showDateTime ?? defaults.showDateTime ?? false, dateTimeOnly: raw.dateTimeOnly ?? defaults.dateTimeOnly ?? false, dateTimeEverySlides, dateTimeDurationSeconds, dateFormat };
+}
+
+export function createDateTimeSlide(timestamp, dateFormat = "system", locale = undefined) {
+  const value = new Date(timestamp), pad = (part) => String(part).padStart(2, "0");
+  const localDate = new Intl.DateTimeFormat(locale, { year:"numeric", month:"2-digit", day:"2-digit" }).format(value);
+  const date = dateFormat === "dmy" ? `${pad(value.getDate())}/${pad(value.getMonth()+1)}/${value.getFullYear()}` : dateFormat === "mdy" ? `${pad(value.getMonth()+1)}/${pad(value.getDate())}/${value.getFullYear()}` : localDate;
+  const weekday = new Intl.DateTimeFormat(locale, { weekday:"long" }).format(value);
+  const time = new Intl.DateTimeFormat(locale, { hour:"2-digit", minute:"2-digit", second:"2-digit" }).format(value);
+  const escapeXml = (text) => text.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&apos;");
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="458" height="196" viewBox="0 0 458 196"><defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#111827"/><stop offset="1" stop-color="#1e3a5f"/></linearGradient></defs><rect width="458" height="196" rx="16" fill="url(#bg)"/><text x="229" y="100" fill="#f8fafc" font-family="Arial, sans-serif" font-size="66" font-weight="700" text-anchor="middle">${escapeXml(time)}</text><text x="229" y="149" fill="#bfdbfe" font-family="Arial, sans-serif" font-size="29" font-weight="700" text-anchor="middle">${escapeXml(`${weekday}, ${date}`)}</text></svg>`;
+  return { name: "date-time", dataUri: `data:image/svg+xml;base64,${Buffer.from(svg).toString("base64")}`, signature: `date-time:${dateFormat}:${Math.floor(timestamp/1000)}` };
 }
 
 export function eligibleName(name) {
@@ -77,6 +99,7 @@ export class SlideshowService {
     this.timerApi=timerApi; this.now=now; this.fsApi=fsApi; this.watchFactory=watchFactory; this.logger=logger;
     this.contexts=new Map(); this.activeContexts=new Set(); this.inspectors=new Set(); this.lastSignature=new Map();
     this.index=0; this.timer=null; this.watcher=null; this.watchDebounce=null; this.nextSlideAt=0; this.nextRescanAt=0; this.settingsRequested=false; this.scanGeneration=0; this.slideCache=new Map();
+    this.showingDateTime=false; this.dateTimeUntil=0; this.imagesSinceDateTime=1;
   }
   bind() {
     this.client.onAdd((e)=>this.add(e)); this.client.onSetActive((e)=>this.setActive(e)); this.client.onSetactive?.((e)=>this.setActive(e));
@@ -123,13 +146,14 @@ export class SlideshowService {
   }
   async applySettings(settings, renderNow) {
     const folderChanged=settings.folderPath!==this.settings.folderPath || settings.sort!==this.settings.sort;
-    this.settings=settings; this.nextSlideAt=this.now()+settings.intervalSeconds*1000;
+    this.settings=settings; this.nextSlideAt=this.now()+settings.intervalSeconds*1000; this.showingDateTime=false; this.dateTimeUntil=0; this.imagesSinceDateTime=0;
     if (folderChanged) { this.index=0; this.stopWatcher(); this.slideCache.clear(); }
-    await this.rescan(renderNow); this.ensureRuntime(); this.broadcastStatus();
+    await this.rescan(renderNow); this.imagesSinceDateTime=1; this.ensureRuntime(); this.broadcastStatus();
   }
   async rescan(renderNow=false) {
     const generation=++this.scanGeneration;
     this.nextRescanAt=this.now()+RESCAN_INTERVAL_MS;
+    if (this.settings.dateTimeOnly) { this.stopWatcher(); if(renderNow)this.renderAll(false); return; }
     if (!this.settings.folderPath) { this.useFallback("Using included sample slides.",renderNow); return; }
     try {
       const result=await enumerateFolder(this.settings.folderPath,this.settings.sort,this.fsApi||undefined,this.slideCache);
@@ -148,7 +172,7 @@ export class SlideshowService {
   snapshot() { return { type:"state", settings:this.settings, status:this.status }; }
   sendStatus(context) { try { this.client.sendToPropertyInspector?.(this.snapshot(),context); } catch { this.log("inspector-send-error"); } }
   broadcastStatus() { for (const context of this.inspectors) this.sendStatus(context); }
-  currentSlide() { return this.slides[this.index]||this.fallbackSlides[0]; }
+  currentSlide() { return this.settings.dateTimeOnly||this.showingDateTime ? createDateTimeSlide(this.now(),this.settings.dateFormat) : this.slides[this.index]||this.fallbackSlides[0]; }
   render(context,force=false) {
     const slide=this.currentSlide(); if(!slide)return;
     if(!force && this.lastSignature.get(context)===slide.signature)return;
@@ -158,13 +182,17 @@ export class SlideshowService {
   renderAll(force=false) { for(const context of this.activeContexts)this.render(context,force); }
   async tick() {
     const time=this.now();
+    if(this.settings.dateTimeOnly){this.renderAll(false);return;}
     if(time>=this.nextRescanAt)await this.rescan(false);
+    if(this.showingDateTime){
+      if(time<this.dateTimeUntil){this.renderAll(false);return;}
+      this.showingDateTime=false;this.dateTimeUntil=0;this.imagesSinceDateTime=0;this.advanceImage();this.nextSlideAt=time+this.settings.intervalSeconds*1000;this.renderAll(false);return;
+    }
     if(time<this.nextSlideAt)return;
-    this.nextSlideAt=time+this.settings.intervalSeconds*1000;
-    const last=this.slides.length-1;
-    if(this.index>=last&&!this.settings.loop)return;
-    this.index=this.index>=last?0:this.index+1; this.renderAll(false);
+    if(this.settings.showDateTime&&this.imagesSinceDateTime>=this.settings.dateTimeEverySlides){this.showingDateTime=true;this.dateTimeUntil=time+this.settings.dateTimeDurationSeconds*1000;this.nextSlideAt=this.dateTimeUntil;this.renderAll(false);return;}
+    this.nextSlideAt=time+this.settings.intervalSeconds*1000;this.advanceImage();
   }
+  advanceImage() { const last=this.slides.length-1;if(this.index>=last&&!this.settings.loop)return false;this.index=this.index>=last?0:this.index+1;this.imagesSinceDateTime++;this.renderAll(false);return true; }
   ensureRuntime() {
     if(this.activeContexts.size===0)return; this.ensureWatcher();
     if(!this.nextRescanAt)this.nextRescanAt=this.now()+RESCAN_INTERVAL_MS;
@@ -172,7 +200,7 @@ export class SlideshowService {
     if(!this.timer)this.timer=this.timerApi.setInterval(()=>void this.tick(),1000);
   }
   ensureWatcher() {
-    if(this.watcher||!this.settings.folderPath||this.status.count===0||this.slides===this.fallbackSlides)return;
+    if(this.settings.dateTimeOnly||this.watcher||!this.settings.folderPath||this.status.count===0||this.slides===this.fallbackSlides)return;
     try { this.watcher=this.watchFactory(this.settings.folderPath,{persistent:false},()=>this.queueRescan()); this.watcher.on?.("error",()=>this.queueRescan()); }
     catch { this.watcher=null; }
   }
@@ -181,7 +209,7 @@ export class SlideshowService {
     this.watchDebounce=this.timerApi.setTimeout(async()=>{this.watchDebounce=null;await this.rescan(true);},WATCH_DEBOUNCE_MS);
   }
   stopWatcher() { try{this.watcher?.close();}catch{} this.watcher=null; if(this.watchDebounce)this.timerApi.clearTimeout(this.watchDebounce); this.watchDebounce=null; }
-  stopRuntime() { this.scanGeneration++; if(this.timer)this.timerApi.clearInterval(this.timer); this.timer=null; this.nextSlideAt=0; this.nextRescanAt=0; this.stopWatcher(); }
+  stopRuntime() { this.scanGeneration++; if(this.timer)this.timerApi.clearInterval(this.timer); this.timer=null; this.nextSlideAt=0; this.nextRescanAt=0; this.showingDateTime=false; this.dateTimeUntil=0; this.imagesSinceDateTime=1; this.stopWatcher(); }
   close() { this.stopRuntime(); this.activeContexts.clear(); this.contexts.clear(); this.inspectors.clear(); this.lastSignature.clear(); this.slideCache.clear(); }
   log(event,slide="") { const safe=/^[A-Za-z0-9._-]{1,128}$/.test(slide)?slide:""; this.logger(`[imageslide] ${JSON.stringify({event,slide:safe,active:this.activeContexts.size})}`); }
 }

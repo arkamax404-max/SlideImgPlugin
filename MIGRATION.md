@@ -46,3 +46,9 @@ Version 0.3.2 corrects the public author metadata to Santiago Pérez. Runtime be
 Version 0.4.0 keeps the plugin UUID and both action UUIDs unchanged while adding one universal package for Windows x64 and macOS x64/arm64. Existing Windows Setup behavior, backups, receipts, and ProfilesV1 fallback remain unchanged.
 
 On macOS, Setup is deliberately limited to ProfilesV2. Close Studio when prompted and reopen it manually after the helper completes; automatic relaunch is not implemented. The slideshow works on the center display, but the Studio clock overlay can remain visible. Windows x64 and macOS x64 are physically validated; macOS arm64 remains statically validated only.
+
+## Updating 0.4.0 to 0.5.0
+
+Version 0.5.0 keeps the plugin UUID, action UUIDs, image settings, Setup backups, receipts, and restore lineage compatible. Existing installations gain an optional localized date/time screen without a settings migration; it is disabled by default.
+
+Use **Show date and time between slides** to configure its image frequency and visible duration. Use **Date and time only** to stop image rotation and folder monitoring while keeping the clock visible. **System default** follows the host language, date order, and 12/24-hour preference on Windows and macOS; explicit `DD/MM/YYYY` and `MM/DD/YYYY` overrides are also available.

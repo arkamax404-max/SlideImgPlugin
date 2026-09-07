@@ -1,6 +1,11 @@
 {
   "intervalSeconds": 10,
   "loop": true,
+  "showDateTime": false,
+  "dateTimeOnly": false,
+  "dateTimeEverySlides": 5,
+  "dateTimeDurationSeconds": 5,
+  "dateFormat": "system",
   "order": [
     "sample-blue.svg",
     "sample-sunset.svg"

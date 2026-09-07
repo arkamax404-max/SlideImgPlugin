@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import sharp from "sharp";
-import { ACTION_UUID, PLUGIN_UUID, SlideshowService, eligibleName, enumerateFolder, loadConfiguration, normalizeSettings } from "../plugin/slideshow.js";
+import { ACTION_UUID, PLUGIN_UUID, SlideshowService, createDateTimeSlide, eligibleName, enumerateFolder, loadConfiguration, normalizeSettings } from "../plugin/slideshow.js";
 import { loadSlide, pngDimensions } from "../plugin/images.js";
 
 const root=resolve(dirname(fileURLToPath(import.meta.url)),"..");
@@ -23,19 +23,30 @@ function fakeRuntime() {
 
 test("manifest and Property Inspector use the Studio 3.2.11 contract",()=>{
   const manifest=JSON.parse(readFileSync(join(root,"manifest.json"),"utf8"));
-assert.equal(PLUGIN_UUID.split(".").length,4);assert.equal(manifest.UUID,PLUGIN_UUID);assert.equal(manifest.Version,"0.4.0");assert.equal(manifest.Actions[0].UUID,ACTION_UUID);assert.equal(manifest.Author,"Santiago P\u00e9rez");
+assert.equal(PLUGIN_UUID.split(".").length,4);assert.equal(manifest.UUID,PLUGIN_UUID);assert.equal(manifest.Version,"0.5.0");assert.equal(manifest.Actions[0].UUID,ACTION_UUID);assert.equal(manifest.Author,"Santiago P\u00e9rez");
+  assert.match(manifest.Description,/automatically resizes/i);assert.match(manifest.Overview,/458 x 196/);assert.match(manifest.Overview,/without changing the originals/i);
   const icon=readFileSync(join(root,"resources","icon.svg"),"utf8");assert.match(icon,/linearGradient id="background"/);assert.equal((icon.match(/stroke="#dcecff"/g)||[]).length,2);assert.match(icon,/id="mountain"/);
   assert.equal(manifest.Actions[0].PropertyInspectorPath,"property-inspector/inspector.html");assert.equal(manifest.Software.MinVersion,"3.0.11");
   const pi=readFileSync(join(root,"property-inspector","inspector.js"),"utf8");
   assert.match(pi,/selectFolderDialog\(\).*send\("selectdialog",\{type:"folder"\}\)/s);assert.match(pi,/onSelectdialog\(message\).*message\.path/s);
+  for(const control of ["date-time-only","show-date-time","date-time-every","date-time-duration","date-format"])assert.ok(pi.includes(control));
   for(const command of ["sendToPlugin","getGlobalSettings","didReceiveGlobalSettings","sendToPropertyInspector"])assert.ok(pi.includes(command));
   assert.equal(readFileSync(join(root,"plugin","slideshow.js"),"utf8").includes("setImage"),false);
 });
 
 test("settings validation enforces a safe global configuration",async()=>{
-  assert.deepEqual(normalizeSettings({folderPath:"C:\\Images",intervalSeconds:5,loop:false,sort:"date"}),{folderPath:"C:\\Images",intervalSeconds:5,loop:false,sort:"date"});
-  assert.throws(()=>normalizeSettings({intervalSeconds:4}),/between 5/);assert.throws(()=>normalizeSettings({loop:"yes"}),/true or false/);assert.throws(()=>normalizeSettings({sort:"random"}),/name or date/);
+  assert.deepEqual(normalizeSettings({folderPath:"C:\\Images",intervalSeconds:5,loop:false,sort:"date"}),{folderPath:"C:\\Images",intervalSeconds:5,loop:false,sort:"date",showDateTime:false,dateTimeOnly:false,dateTimeEverySlides:5,dateTimeDurationSeconds:5,dateFormat:"system"});
+  assert.deepEqual(normalizeSettings({showDateTime:true,dateTimeEverySlides:"3",dateTimeDurationSeconds:"8"}).dateTimeEverySlides,3);
+  assert.throws(()=>normalizeSettings({intervalSeconds:4}),/between 5/);assert.throws(()=>normalizeSettings({loop:"yes"}),/true or false/);assert.throws(()=>normalizeSettings({sort:"random"}),/name or date/);assert.throws(()=>normalizeSettings({showDateTime:"yes"}),/true or false/);assert.throws(()=>normalizeSettings({dateTimeOnly:"yes"}),/true or false/);assert.throws(()=>normalizeSettings({dateTimeEverySlides:0}),/frequency/);assert.throws(()=>normalizeSettings({dateTimeDurationSeconds:1.5}),/duration/);assert.throws(()=>normalizeSettings({dateFormat:"ymd"}),/Date format/);
   const config=await loadConfiguration(root);assert.equal(config.fallbackSlides.length,2);assert.ok(config.fallbackSlides.every(s=>s.signature&&s.dataUri.startsWith("data:image/svg+xml;base64,")));
+});
+
+test("date and time slide follows system locale or explicit date order and includes weekday",()=>{
+  const timestamp=new Date(2026,8,7,14,5,9).getTime(),decode=(slide)=>Buffer.from(slide.dataUri.split(",",2)[1],"base64").toString("utf8");
+  const systemUs=decode(createDateTimeSlide(timestamp,"system","en-US")),systemGb=decode(createDateTimeSlide(timestamp,"system","en-GB"));
+  const dmy=decode(createDateTimeSlide(timestamp,"dmy","en-GB")),mdy=decode(createDateTimeSlide(timestamp,"mdy","en-US")),next=createDateTimeSlide(timestamp+1000,"system","en-US");
+  assert.match(systemUs,/width="458" height="196"/);assert.equal((systemUs.match(/font-weight="700"/g)||[]).length,2);assert.match(systemUs,/font-size="66"/);assert.match(systemUs,/font-size="29"/);assert.match(systemUs,/Monday, 09\/07\/2026/);assert.match(systemUs,/02:05:09.*PM/);
+  assert.match(systemGb,/Monday, 07\/09\/2026/);assert.match(systemGb,/14:05:09/);assert.match(dmy,/07\/09\/2026/);assert.match(mdy,/09\/07\/2026/);assert.notEqual(createDateTimeSlide(timestamp,"system","en-US").signature,next.signature);
 });
 
 test("folder enumeration resizes with centered cover, filters, hashes, and orders deterministically",async()=>{
@@ -61,6 +72,25 @@ test("one active-only scheduler handles slideshow and periodic rescan",async()=>
   assert.equal(r.timers.intervals,1);assert.equal(r.timers.ms,1000);assert.equal(r.sent.length,2);assert.equal(r.client.requested,c1);
   now=11000;await r.timers.fn();assert.equal(r.sent.length,4);
   r.handlers.setActive({uuid:ACTION_UUID,context:c1,active:false});assert.equal(r.timers.cleared,0);r.handlers.clear([c2]);assert.equal(r.timers.cleared,1);assert.equal(service.timer,null);assert.ok(watcherClosed>=0);
+});
+
+test("scheduler inserts a live date and time screen after the configured image count",async()=>{
+  const r=fakeRuntime(),config=await loadConfiguration(root);let now=1000;
+  const service=new SlideshowService({client:r.client,configuration:config,timerApi:r.timers,now:()=>now,logger(){}});service.bind();const context=`${ACTION_UUID}___3_2___clock`;r.handlers.add({uuid:ACTION_UUID,context});
+  await r.handlers.send({uuid:ACTION_UUID,context,payload:{type:"updateSettings",settings:{folderPath:"",intervalSeconds:5,loop:true,sort:"name",showDateTime:true,dateTimeEverySlides:2,dateTimeDurationSeconds:3}}});
+  now=6000;await r.timers.fn();assert.equal(service.index,1);assert.equal(service.showingDateTime,false);
+  now=11000;await r.timers.fn();assert.equal(service.showingDateTime,true);const firstClock=r.sent.at(-1).data;
+  now=12000;await r.timers.fn();assert.equal(service.showingDateTime,true);assert.notEqual(r.sent.at(-1).data,firstClock);
+  now=14000;await r.timers.fn();assert.equal(service.showingDateTime,false);assert.equal(service.index,0);assert.equal(r.sent.at(-1).data,config.fallbackSlides[0].dataUri);
+});
+
+test("date and time only mode continuously renders the clock without scanning or advancing images",async()=>{
+  const r=fakeRuntime(),config=await loadConfiguration(root);let now=1000,watchCalls=0,fsCalls=0;
+  const fsApi={lstatSync(){fsCalls++;throw new Error("images disabled")},readdirSync(){fsCalls++;throw new Error("images disabled")}};
+  const service=new SlideshowService({client:r.client,configuration:config,timerApi:r.timers,now:()=>now,fsApi,watchFactory(){watchCalls++;throw new Error("images disabled")},logger(){}});service.bind();const context=`${ACTION_UUID}___3_2___clock-only`;r.handlers.add({uuid:ACTION_UUID,context});
+  await r.handlers.send({uuid:ACTION_UUID,context,payload:{type:"updateSettings",settings:{folderPath:"C:\\Images",intervalSeconds:5,loop:true,sort:"name",showDateTime:false,dateTimeOnly:true,dateTimeEverySlides:2,dateTimeDurationSeconds:3,dateFormat:"dmy"}}});
+  const firstClock=r.sent.at(-1).data;assert.match(Buffer.from(firstClock.split(",",2)[1],"base64").toString("utf8"),/date-time|font-size="66"/);assert.equal(fsCalls,0);assert.equal(watchCalls,0);
+  now=2000;await r.timers.fn();assert.notEqual(r.sent.at(-1).data,firstClock);assert.equal(service.index,0);assert.equal(fsCalls,0);assert.equal(watchCalls,0);
 });
 
 test("PI settings persist globally and empty/error folders use bundled fallback",async()=>{
