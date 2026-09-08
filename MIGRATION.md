@@ -70,3 +70,7 @@ The release also adds the cross-platform CPU/GPU/RAM panel. CPU and RAM are avai
 ## Updating 0.7.0 to 0.7.1
 
 Version 0.7.1 corrects the Community Store cover and completes the public description of independent image, clock, weather, and CPU/GPU/RAM content. Runtime behavior and persisted settings remain unchanged.
+
+## Updating 0.7.1 to 0.7.2
+
+Version 0.7.2 formalizes Community Store artwork validation at a 16:9 cover ratio and 3:1 banner ratio. Runtime behavior, persisted settings, and the current artwork remain unchanged.
