@@ -24,21 +24,22 @@ function fakeRuntime() {
 
 test("manifest and Property Inspector use the Studio 3.2.11 contract",()=>{
   const manifest=JSON.parse(readFileSync(join(root,"manifest.json"),"utf8"));
-assert.equal(PLUGIN_UUID.split(".").length,4);assert.equal(manifest.UUID,PLUGIN_UUID);assert.equal(manifest.Version,"0.6.0");assert.equal(manifest.Actions[0].UUID,ACTION_UUID);assert.equal(manifest.Author,"Santiago P\u00e9rez");
+assert.equal(PLUGIN_UUID.split(".").length,4);assert.equal(manifest.UUID,PLUGIN_UUID);assert.equal(manifest.Version,"0.7.0");assert.equal(manifest.Actions[0].UUID,ACTION_UUID);assert.equal(manifest.Author,"Santiago P\u00e9rez");
   assert.match(manifest.Description,/automatically resizes/i);assert.match(manifest.Overview,/458 x 196/);assert.match(manifest.Overview,/without changing the originals/i);
   const icon=readFileSync(join(root,"resources","icon.svg"),"utf8");assert.match(icon,/linearGradient id="background"/);assert.equal((icon.match(/stroke="#dcecff"/g)||[]).length,2);assert.match(icon,/id="mountain"/);
   assert.equal(manifest.Actions[0].PropertyInspectorPath,"property-inspector/inspector.html");assert.equal(manifest.Software.MinVersion,"3.0.11");
   const pi=readFileSync(join(root,"property-inspector","inspector.js"),"utf8");
   assert.match(pi,/selectFolderDialog\(\).*send\("selectdialog",\{type:"folder"\}\)/s);assert.match(pi,/onSelectdialog\(message\).*message\.path/s);
-  for(const control of ["date-time-only","show-date-time","date-time-every","date-time-duration","date-format","weather-only","show-weather","weather-api-key","weather-location","weather-units","weather-every","weather-duration"])assert.ok(pi.includes(control));
+  for(const control of ["show-images","show-date-time","date-time-every","date-time-duration","date-format","show-weather","weather-api-key","weather-location","weather-units","weather-every","weather-duration","show-system","system-every","system-duration"])assert.ok(pi.includes(control));
   for(const command of ["sendToPlugin","getGlobalSettings","didReceiveGlobalSettings","sendToPropertyInspector"])assert.ok(pi.includes(command));
   assert.equal(readFileSync(join(root,"plugin","slideshow.js"),"utf8").includes("setImage"),false);
 });
 
 test("settings validation enforces a safe global configuration",async()=>{
-  assert.deepEqual(normalizeSettings({folderPath:"C:\\Images",intervalSeconds:5,loop:false,sort:"date"}),{folderPath:"C:\\Images",intervalSeconds:5,loop:false,sort:"date",showDateTime:false,dateTimeOnly:false,dateTimeEverySlides:5,dateTimeDurationSeconds:5,dateFormat:"system",showWeather:false,weatherOnly:false,weatherApiKey:"",weatherLocation:"",weatherUnits:"c",weatherEverySlides:5,weatherDurationSeconds:8});
+  assert.deepEqual(normalizeSettings({folderPath:"C:\\Images",intervalSeconds:5,loop:false,sort:"date"}),{folderPath:"C:\\Images",intervalSeconds:5,loop:false,sort:"date",showImages:true,showDateTime:false,dateTimeEverySlides:5,dateTimeDurationSeconds:5,dateFormat:"system",showWeather:false,weatherApiKey:"",weatherLocation:"",weatherUnits:"c",weatherEverySlides:5,weatherDurationSeconds:8,showSystemStats:false,systemEverySlides:5,systemDurationSeconds:5});
   assert.deepEqual(normalizeSettings({showDateTime:true,dateTimeEverySlides:"3",dateTimeDurationSeconds:"8"}).dateTimeEverySlides,3);
-  assert.throws(()=>normalizeSettings({intervalSeconds:4}),/between 5/);assert.throws(()=>normalizeSettings({loop:"yes"}),/true or false/);assert.throws(()=>normalizeSettings({sort:"random"}),/name or date/);assert.throws(()=>normalizeSettings({showDateTime:"yes"}),/true or false/);assert.throws(()=>normalizeSettings({dateTimeOnly:"yes"}),/true or false/);assert.throws(()=>normalizeSettings({dateTimeEverySlides:0}),/frequency/);assert.throws(()=>normalizeSettings({dateTimeDurationSeconds:1.5}),/duration/);assert.throws(()=>normalizeSettings({dateFormat:"ymd"}),/Date format/);assert.throws(()=>normalizeSettings({showWeather:"yes"}),/true or false/);assert.throws(()=>normalizeSettings({weatherUnits:"kelvin"}),/units/);assert.throws(()=>normalizeSettings({weatherEverySlides:0}),/frequency/);assert.throws(()=>normalizeSettings({dateTimeOnly:true,weatherOnly:true}),/cannot both/);
+  assert.equal(normalizeSettings({dateTimeOnly:true}).showImages,false);assert.equal(normalizeSettings({weatherOnly:true}).showWeather,true);
+  assert.throws(()=>normalizeSettings({intervalSeconds:4}),/between 5/);assert.throws(()=>normalizeSettings({loop:"yes"}),/true or false/);assert.throws(()=>normalizeSettings({sort:"random"}),/name or date/);assert.throws(()=>normalizeSettings({showImages:"yes"}),/true or false/);assert.throws(()=>normalizeSettings({showDateTime:"yes"}),/true or false/);assert.throws(()=>normalizeSettings({dateTimeOnly:"yes"}),/true or false/);assert.throws(()=>normalizeSettings({dateTimeEverySlides:0}),/frequency/);assert.throws(()=>normalizeSettings({dateTimeDurationSeconds:1.5}),/duration/);assert.throws(()=>normalizeSettings({dateFormat:"ymd"}),/Date format/);assert.throws(()=>normalizeSettings({showWeather:"yes"}),/true or false/);assert.throws(()=>normalizeSettings({weatherUnits:"kelvin"}),/units/);assert.throws(()=>normalizeSettings({weatherEverySlides:0}),/frequency/);assert.throws(()=>normalizeSettings({showSystemStats:"yes"}),/true or false/);assert.throws(()=>normalizeSettings({systemEverySlides:0}),/frequency/);assert.throws(()=>normalizeSettings({showImages:false}),/Enable an information screen/);
   const config=await loadConfiguration(root);assert.equal(config.fallbackSlides.length,2);assert.ok(config.fallbackSlides.every(s=>s.signature&&s.dataUri.startsWith("data:image/svg+xml;base64,")));
 });
 
@@ -46,8 +47,9 @@ test("date and time slide follows system locale or explicit date order and inclu
   const timestamp=new Date(2026,8,7,14,5,9).getTime(),decode=(slide)=>Buffer.from(slide.dataUri.split(",",2)[1],"base64").toString("utf8");
   const systemUs=decode(createDateTimeSlide(timestamp,"system","en-US")),systemGb=decode(createDateTimeSlide(timestamp,"system","en-GB"));
   const dmy=decode(createDateTimeSlide(timestamp,"dmy","en-GB")),mdy=decode(createDateTimeSlide(timestamp,"mdy","en-US")),next=createDateTimeSlide(timestamp+1000,"system","en-US");
-  assert.match(systemUs,/width="458" height="196"/);assert.equal((systemUs.match(/font-weight="700"/g)||[]).length,2);assert.match(systemUs,/font-size="66"/);assert.match(systemUs,/font-size="29"/);assert.match(systemUs,/Monday, 09\/07\/2026/);assert.match(systemUs,/02:05:09.*PM/);
-  assert.match(systemGb,/Monday, 07\/09\/2026/);assert.match(systemGb,/14:05:09/);assert.match(dmy,/07\/09\/2026/);assert.match(mdy,/09\/07\/2026/);assert.notEqual(createDateTimeSlide(timestamp,"system","en-US").signature,next.signature);
+  assert.match(systemUs,/width="458" height="196"/);assert.equal((systemUs.match(/data-panel=/g)||[]).length,2);assert.match(systemUs,/data-panel="time"/);assert.match(systemUs,/data-panel="date"/);assert.match(systemUs,/font-size="50"/);assert.match(systemUs,/Monday, 09\/07\/2026/);assert.match(systemUs,/02:05:09.*PM/);
+  assert.match(systemGb,/Monday/);assert.match(systemGb,/07\/09\/2026/);assert.match(systemGb,/14:05:09/);assert.match(dmy,/07\/09\/2026/);assert.match(mdy,/09\/07\/2026/);assert.notEqual(createDateTimeSlide(timestamp,"system","en-US").signature,next.signature);
+  const license=readFileSync(join(root,"resources","LICENSE-LUCIDE.txt"),"utf8");assert.match(license,/ISC License/);assert.match(license,/Lucide Icons/);
 });
 
 test("folder enumeration resizes with centered cover, filters, hashes, and orders deterministically",async()=>{
@@ -85,12 +87,12 @@ test("scheduler inserts a live date and time screen after the configured image c
   now=14000;await r.timers.fn();assert.equal(service.showingDateTime,false);assert.equal(service.index,0);assert.equal(r.sent.at(-1).data,config.fallbackSlides[0].dataUri);
 });
 
-test("date and time only mode continuously renders the clock without scanning or advancing images",async()=>{
+test("disabling images with date/time enabled continuously renders the clock",async()=>{
   const r=fakeRuntime(),config=await loadConfiguration(root);let now=1000,watchCalls=0,fsCalls=0;
   const fsApi={lstatSync(){fsCalls++;throw new Error("images disabled")},readdirSync(){fsCalls++;throw new Error("images disabled")}};
   const service=new SlideshowService({client:r.client,configuration:config,timerApi:r.timers,now:()=>now,fsApi,watchFactory(){watchCalls++;throw new Error("images disabled")},logger(){}});service.bind();const context=`${ACTION_UUID}___3_2___clock-only`;r.handlers.add({uuid:ACTION_UUID,context});
-  await r.handlers.send({uuid:ACTION_UUID,context,payload:{type:"updateSettings",settings:{folderPath:"C:\\Images",intervalSeconds:5,loop:true,sort:"name",showDateTime:false,dateTimeOnly:true,dateTimeEverySlides:2,dateTimeDurationSeconds:3,dateFormat:"dmy"}}});
-  const firstClock=r.sent.at(-1).data;assert.match(Buffer.from(firstClock.split(",",2)[1],"base64").toString("utf8"),/date-time|font-size="66"/);assert.equal(fsCalls,0);assert.equal(watchCalls,0);
+  await r.handlers.send({uuid:ACTION_UUID,context,payload:{type:"updateSettings",settings:{folderPath:"C:\\Images",intervalSeconds:5,loop:true,sort:"name",showImages:false,showDateTime:true,dateTimeEverySlides:2,dateTimeDurationSeconds:3,dateFormat:"dmy"}}});
+  const firstClock=r.sent.at(-1).data,clockMarkup=Buffer.from(firstClock.split(",",2)[1],"base64").toString("utf8");assert.equal((clockMarkup.match(/data-panel=/g)||[]).length,2);assert.match(clockMarkup,/circle cx="12"/);assert.equal(fsCalls,0);assert.equal(watchCalls,0);
   now=2000;await r.timers.fn();assert.notEqual(r.sent.at(-1).data,firstClock);assert.equal(service.index,0);assert.equal(fsCalls,0);assert.equal(watchCalls,0);
 });
 
@@ -106,11 +108,29 @@ test("scheduler inserts weather, refreshes safely, and keeps stale forecast on f
   await service.applySettings({...service.settings,weatherLocation:"Barcelona"},false);assert.equal(calls,3);assert.equal(service.weatherData,null);assert.equal(service.weatherStatus.level,"error");assert.equal(logs.some(line=>line.includes("top-secret-key")||line.includes("network secret")),false);
 });
 
-test("weather-only mode avoids image access and continuously shows the forecast",async()=>{
+test("simultaneously due panels run date, weather, and system sequentially before images resume",async()=>{
+  const r=fakeRuntime(),config=await loadConfiguration(root);let now=1000;
+  const systemMonitor={sample:async()=>({cpu:20,gpu:30,ram:40,ramUsed:4*1024**3,ramTotal:10*1024**3,sampledAt:now})},service=new SlideshowService({client:r.client,configuration:config,timerApi:r.timers,now:()=>now,fetchImpl:async()=>({ok:true,text:async()=>JSON.stringify(weatherResponse())}),systemMonitor,logger(){}});service.bind();const context=`${ACTION_UUID}___3_2___sequential`;r.handlers.add({uuid:ACTION_UUID,context});
+  await r.handlers.send({uuid:ACTION_UUID,context,payload:{type:"updateSettings",settings:{...service.settings,intervalSeconds:5,showDateTime:true,dateTimeEverySlides:3,dateTimeDurationSeconds:2,showWeather:true,weatherEverySlides:3,weatherDurationSeconds:3,weatherApiKey:"key",weatherLocation:"Madrid",showSystemStats:true,systemEverySlides:3,systemDurationSeconds:2}}});
+  now=6000;await service.tick();assert.equal(service.index,1);now=11000;await service.tick();assert.equal(service.index,0);
+  now=16000;await service.tick();assert.equal(service.showingDateTime,true);assert.deepEqual(service.presentationQueue,["weather","system"]);assert.equal(service.index,0);
+  now=18000;await service.tick();assert.equal(service.showingDateTime,false);assert.equal(service.showingWeather,true);assert.deepEqual(service.presentationQueue,["system"]);assert.equal(service.index,0);
+  now=21000;await service.tick();assert.equal(service.showingWeather,false);assert.equal(service.showingSystem,true);assert.deepEqual(service.presentationQueue,[]);assert.equal(service.index,0);
+  now=23000;await service.tick();assert.equal(service.showingSystem,false);assert.equal(service.index,1);assert.equal(service.imagesSinceDateTime,1);assert.equal(service.imagesSinceWeather,1);assert.equal(service.imagesSinceSystem,1);
+});
+
+test("disabling images with weather enabled avoids image access",async()=>{
   const r=fakeRuntime(),config=await loadConfiguration(root);let now=1000,fsCalls=0,watchCalls=0;
   const service=new SlideshowService({client:r.client,configuration:config,timerApi:r.timers,now:()=>now,fsApi:{lstatSync(){fsCalls++;throw Error()},readdirSync(){fsCalls++;throw Error()}},watchFactory(){watchCalls++;throw Error()},fetchImpl:async()=>({ok:true,text:async()=>JSON.stringify(weatherResponse())}),logger(){}});service.bind();const context=`${ACTION_UUID}___3_2___weather-only`;r.handlers.add({uuid:ACTION_UUID,context});
-  await r.handlers.send({uuid:ACTION_UUID,context,payload:{type:"updateSettings",settings:{...service.settings,folderPath:"C:\\Images",weatherOnly:true,weatherApiKey:"key",weatherLocation:"Madrid"}}});const frame=r.sent.at(-1).data;assert.match(frame,/^data:image\/png;base64,/);assert.equal(service.weatherData.location,"Madrid");assert.equal(fsCalls,0);assert.equal(watchCalls,0);
+  await r.handlers.send({uuid:ACTION_UUID,context,payload:{type:"updateSettings",settings:{...service.settings,folderPath:"C:\\Images",showImages:false,showWeather:true,weatherApiKey:"key",weatherLocation:"Madrid"}}});const frame=r.sent.at(-1).data;assert.match(frame,/^data:image\/png;base64,/);assert.equal(service.weatherData.location,"Madrid");assert.equal(fsCalls,0);assert.equal(watchCalls,0);
   now=2000;await r.timers.fn();assert.equal(service.index,0);assert.equal(fsCalls,0);assert.equal(watchCalls,0);
+});
+
+test("date/time, weather, and system resources rotate by duration when images are disabled",async()=>{
+  const r=fakeRuntime(),config=await loadConfiguration(root);let now=1000;
+  const systemMonitor={sample:async()=>({cpu:20,gpu:30,ram:40,ramUsed:4*1024**3,ramTotal:10*1024**3,sampledAt:now})},service=new SlideshowService({client:r.client,configuration:config,timerApi:r.timers,now:()=>now,fetchImpl:async()=>({ok:true,text:async()=>JSON.stringify(weatherResponse())}),systemMonitor,logger(){}});service.bind();const context=`${ACTION_UUID}___3_2___information`;r.handlers.add({uuid:ACTION_UUID,context});
+  await r.handlers.send({uuid:ACTION_UUID,context,payload:{type:"updateSettings",settings:{...service.settings,showImages:false,showDateTime:true,dateTimeDurationSeconds:3,showWeather:true,weatherDurationSeconds:4,weatherApiKey:"key",weatherLocation:"Madrid",showSystemStats:true,systemDurationSeconds:2}}});assert.equal(service.informationView,"dateTime");assert.deepEqual(service.informationViews(),["dateTime","weather","system"]);assert.equal(service.nextSlideAt,4000);assert.match(r.sent.at(-1).data,/^data:image\/svg\+xml;base64,/);
+  now=4000;await service.tick();assert.equal(service.informationView,"weather");assert.match(r.sent.at(-1).data,/^data:image\/png;base64,/);now=8000;await service.tick();assert.equal(service.informationView,"system");assert.match(r.sent.at(-1).data,/^data:image\/png;base64,/);now=10000;await service.tick();assert.equal(service.informationView,"dateTime");assert.match(r.sent.at(-1).data,/^data:image\/svg\+xml;base64,/);
 });
 
 test("changing weather location discards an in-flight response for the previous city",async()=>{

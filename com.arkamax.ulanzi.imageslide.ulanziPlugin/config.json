@@ -1,18 +1,20 @@
 {
   "intervalSeconds": 10,
   "loop": true,
+  "showImages": true,
   "showDateTime": false,
-  "dateTimeOnly": false,
   "dateTimeEverySlides": 5,
   "dateTimeDurationSeconds": 5,
   "dateFormat": "system",
   "showWeather": false,
-  "weatherOnly": false,
   "weatherApiKey": "",
   "weatherLocation": "",
   "weatherUnits": "c",
   "weatherEverySlides": 5,
   "weatherDurationSeconds": 8,
+  "showSystemStats": false,
+  "systemEverySlides": 5,
+  "systemDurationSeconds": 5,
   "order": [
     "sample-blue.svg",
     "sample-sunset.svg"

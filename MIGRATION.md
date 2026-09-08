@@ -60,3 +60,9 @@ Version 0.5.1 fixes Setup state and Restore lineage across newly created pages a
 ## Updating 0.5.1 to 0.6.0
 
 Version 0.6.0 adds optional WeatherAPI current conditions and a three-day forecast in periodic or weather-only modes. Existing image, date/time, Setup, backup, and receipt behavior remains compatible, and weather is disabled by default. Users who enable it provide their own WeatherAPI key and location in the Property Inspector.
+
+## Updating 0.6.0 to 0.7.0
+
+Version 0.7.0 replaces separate date-time-only and weather-only switches with independent image, date/time, weather, and system-resource content choices. Existing settings migrate automatically. With images disabled, enabled information screens rotate by duration; with images enabled, simultaneously due panels run sequentially as date/time, weather, then system resources before images resume.
+
+The release also adds the cross-platform CPU/GPU/RAM panel. CPU and RAM are available on Windows and macOS; GPU is best-effort and displays `N/A` when the operating system or driver does not expose utilization.
