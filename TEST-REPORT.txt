@@ -1,4 +1,4 @@
-ImageSlidePlugin 0.7.3 universal release verification
+ImageSlidePlugin 0.7.4 universal release verification
 ================================================================
 
 Scope
@@ -10,6 +10,7 @@ Scope
 - Setup diagnostics and Windows Restore lineage remain bound across new pages and repeated cycles.
 - Optional WeatherAPI current conditions and three-day forecast with bundled MIT Meteocons.
 - Independent content controls, two-panel clock, CPU/GPU/RAM screen, and ordered due-panel queue.
+- CPU/GPU/RAM sampling runs only while the system-resource panel is visible.
 - The active Windows plugin was backed up and updated for physical validation; packaging did not modify the live profile or D200 state.
 
 Release work units
