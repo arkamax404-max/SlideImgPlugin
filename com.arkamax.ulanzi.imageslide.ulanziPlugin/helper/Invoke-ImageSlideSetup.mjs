@@ -8,7 +8,7 @@ import { promisify } from "node:util";
 import { pathToFileURL } from "node:url";
 
 const execFile=promisify(execFileCallback);
-const ACTION="com.arkamax.ulanzi.imageslide.slideshow", SETUP="com.arkamax.ulanzi.imageslide.setup", BUILTIN="com.ulanzi.ulanzideck.smallwindow.window", VERSION="0.7.0";
+const ACTION="com.arkamax.ulanzi.imageslide.slideshow", SETUP="com.arkamax.ulanzi.imageslide.setup", BUILTIN="com.ulanzi.ulanzideck.smallwindow.window", VERSION="0.7.1";
 const CODES=new Set(["PROFILE_NOT_FOUND","PROFILE_AMBIGUOUS","SETUP_INSTANCE_NOT_FOUND","PAGE_INVALID","SLOT_UNRELATED","SETTINGS_SCHEMA_UNSUPPORTED","REQUEST_WRITE_FAILED","PROFILE_STORE_UNREADABLE","MANIFEST_INVALID","COMPATIBILITY_UNSUPPORTED","HELPER_PROCESS_FAILED","REPREPARE_REQUIRED","RESTORE_BACKUP_NOT_FOUND","RESTORE_BACKUP_INVALID","RESTORED"]);
 const PHASES=new Set(["INITIALIZING","COMPATIBILITY","COMPAT_PLUGIN_ROOT","COMPAT_MANIFEST_READ","COMPAT_EXE_PATH","COMPAT_VERSION_READ","COMPAT_HASH_READ","COMPAT_ENV_PATHS","SETTINGS_READ","SETTINGS_SCHEMA","V2_ENUMERATION","DEVICE_PROFILE_MATCH","PAGE_READ","TARGET_RESOLUTION","RESTORE_RESOLUTION","SLOT_VALIDATION","REQUEST_WRITE","APPLY_PRECHECK","BACKUP","PATCH_WRITE","RESTORE_WRITE","READBACK","RECEIPT","MANUAL_REOPEN"]);
 const hash=value=>createHash("sha256").update(value).digest("hex");

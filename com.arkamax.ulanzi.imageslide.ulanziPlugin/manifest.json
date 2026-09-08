@@ -4,7 +4,7 @@
   "Description": "Automatically resizes images and adds clock, weather, or system-resource screens for the Ulanzi D200.",
   "Overview": "Center-crop local images to 458 x 196 without changing the originals; add clock, weather, or CPU/GPU/RAM.",
   "Author": "Santiago P\u00e9rez",
-  "Version": "0.7.0",
+  "Version": "0.7.1",
   "Icon": "resources/icon.svg",
   "Category": "Arkamax",
   "CategoryIcon": "resources/category.svg",
@@ -15,7 +15,7 @@
   "Actions": [
     {
       "Name": "Image Slideshow",
-      "Tooltip": "Rotate auto-fitted images and optionally show a localized clock or WeatherAPI forecast.",
+      "Tooltip": "Rotate auto-fitted images with optional clock, WeatherAPI forecast, and CPU/GPU/RAM panels.",
       "Icon": "resources/action.svg",
       "UUID": "com.arkamax.ulanzi.imageslide.slideshow",
       "PropertyInspectorPath": "property-inspector/inspector.html",

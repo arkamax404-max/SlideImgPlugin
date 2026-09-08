@@ -4,7 +4,7 @@ Created by **Santiago Pérez**.
 
 ImageSlidePlugin keeps Ulanzi Studio and its plugins intact. It installs **Image Slideshow**, imports an independently identified profile clone, and lets you combine local images, a localized clock, an optional WeatherAPI forecast, and system resource usage from the Property Inspector.
 
-Version **0.7.0** is packaged from one source tree as one universal `*.ulanziPlugin.zip` for Windows x64, macOS x64, and macOS arm64. It automatically center-crops images of other sizes to 458 x 196 in memory while leaving the original files untouched.
+Version **0.7.1** is packaged from one source tree as one universal `*.ulanziPlugin.zip` for Windows x64, macOS x64, and macOS arm64. It automatically center-crops images of other sizes to 458 x 196 in memory while leaving the original files untouched.
 
 An existing successful **0.1.9** Setup patch does not need to be patched again. Select **Restore original** before pressing Setup; 0.2.0 accepts that version's verified `apply-or-repair` receipt and backup, binds them into a new restore request, and restores the exact pre-0.1.9 bytes after Studio closes. Missing, ambiguous, changed, or tampered lineage fails closed.
 
@@ -24,7 +24,7 @@ An existing successful **0.1.9** Setup patch does not need to be patched again. 
 
 ## Choose images
 
-The Property Inspector separates image, date/time, and weather content. **Refresh folder** sits beside **Select folder**, and **Show image slideshow** controls whether images participate in the rotation. Settings are plugin-wide because the cloned profile has one large-display slideshow instance.
+The Property Inspector separates image, date/time, weather, and system-resource content. **Refresh folder** sits beside **Select folder**, and **Show image slideshow** controls whether images participate in the rotation. Settings are plugin-wide because the cloned profile has one large-display slideshow instance.
 
 | Rule | Behavior |
 |---|---|
@@ -52,7 +52,7 @@ The date/time screen updates once per second with a large clock and a bold weekd
 | **System default** | Uses the Windows or macOS language, date order, and 12/24-hour preference |
 | `DD/MM/YYYY` / `MM/DD/YYYY` | Overrides date order while retaining the localized weekday and system time format |
 
-To show only information, disable **Show image slideshow**. Enable both **Include date and time** and **Include weather forecast** to alternate them using their respective durations. Enable only one to keep that information screen continuously visible. Image folder settings remain saved while images are disabled.
+To show only information, disable **Show image slideshow**. Enable any combination of **Include date and time**, **Include weather forecast**, and **Include CPU, GPU, and RAM** to rotate them using their respective durations. Enable only one to keep that information screen continuously visible. Image folder settings remain saved while images are disabled.
 
 ### Show weather
 

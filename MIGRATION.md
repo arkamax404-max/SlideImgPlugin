@@ -66,3 +66,7 @@ Version 0.6.0 adds optional WeatherAPI current conditions and a three-day foreca
 Version 0.7.0 replaces separate date-time-only and weather-only switches with independent image, date/time, weather, and system-resource content choices. Existing settings migrate automatically. With images disabled, enabled information screens rotate by duration; with images enabled, simultaneously due panels run sequentially as date/time, weather, then system resources before images resume.
 
 The release also adds the cross-platform CPU/GPU/RAM panel. CPU and RAM are available on Windows and macOS; GPU is best-effort and displays `N/A` when the operating system or driver does not expose utilization.
+
+## Updating 0.7.0 to 0.7.1
+
+Version 0.7.1 corrects the Community Store cover and completes the public description of independent image, clock, weather, and CPU/GPU/RAM content. Runtime behavior and persisted settings remain unchanged.
