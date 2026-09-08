@@ -73,4 +73,8 @@ Version 0.7.1 corrects the Community Store cover and completes the public descri
 
 ## Updating 0.7.1 to 0.7.2
 
-Version 0.7.2 formalizes Community Store artwork validation at a 16:9 cover ratio and 3:1 banner ratio. Runtime behavior, persisted settings, and the current artwork remain unchanged.
+Version 0.7.2 introduced Store artwork ratio validation but referenced obsolete `assets` files. Use 0.7.3 for the corrected authoritative artwork and proportions.
+
+## Updating 0.7.2 to 0.7.3
+
+Version 0.7.3 moves the authoritative Community Store artwork to `resources/store`, uses the intended cover and banner, and enforces their documented 2:1 and 3:2 ratios. Runtime behavior and persisted settings remain unchanged.

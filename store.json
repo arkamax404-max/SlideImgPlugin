@@ -1,7 +1,7 @@
 {
-  "cover": "assets/cover.png",
+  "cover": "resources/store/cover.png",
   "screenshots": [
-    "assets/banner.png"
+    "resources/store/banner.png"
   ],
   "longDescription": "Image Slideshow by Santiago Pérez turns the Ulanzi D200 center display into a rotating gallery, localized clock, optional WeatherAPI forecast, and CPU/GPU/RAM monitor on Windows x64 and macOS x64/arm64. Choose a local folder of PNG, JPG, JPEG, or SVG images, set the interval and ordering, and let the plugin detect file changes automatically. Exact 458 x 196 images pass through unchanged; other sizes are center-cropped in memory without modifying the originals. Image, date/time, weather, and system-resource content can be enabled independently; disabling images allows the information screens to rotate by their configured durations. GPU utilization is best-effort and displays N/A when the operating system or driver does not expose it. Celsius/Fahrenheit and bundled MIT-licensed Meteocons are included. Images, clock, and system resources work offline; weather requires the user's own WeatherAPI key and network access. Setup Large Display provides guided Install, Repair, and Restore operations with verified requests, backups, atomic profile updates, readback validation, and rollback. Windows restarts the validated Studio executable automatically. macOS Setup supports ProfilesV2 only and requires the user to reopen Studio manually after the helper finishes. The macOS Studio clock overlay can remain visible in this release. Special thanks to the author of https://github.com/chilleno/claude-deck for documenting the profile technique that made safe use of the D200 large display possible.",
   "deviceTypes": [

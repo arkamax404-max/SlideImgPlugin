@@ -74,7 +74,7 @@ class DeliveryTests(unittest.TestCase):
         self.assertFalse({"source_package_id","source_profile_id","profile_id_map","input_sha256"}&receipt.keys())
         _,z=tool.read_archive(profile);package_id,_,_,_,profile_ids,_=tool.package_identity(z);entry=json.loads(z.read(receipt["manifest_member"]))["Controllers"][receipt["controller_index"]]["Actions"]["3_2"]
         self.assertEqual(receipt["package_id"],package_id);self.assertIn(receipt["profile_id"],profile_ids);self.assertEqual(receipt["action_id"],entry["ActionID"])
-        self.assertEqual(entry["Action"],"com.arkamax.ulanzi.imageslide.slideshow");self.assertEqual(entry["Plugin"],{"Name":"Image Slideshow","UUID":"com.arkamax.ulanzi.imageslide","Version":"0.7.2"})
+        self.assertEqual(entry["Action"],"com.arkamax.ulanzi.imageslide.slideshow");self.assertEqual(entry["Plugin"],{"Name":"Image Slideshow","UUID":"com.arkamax.ulanzi.imageslide","Version":"0.7.3"})
 
     def test_portable_profile_receipt_generation_is_deterministic(self):
         profile=ROOT/"ImageSlide.ulanziDeckProfile"
@@ -129,7 +129,7 @@ class DeliveryTests(unittest.TestCase):
 $manifest='{quoted(manifest)}';$backup='{quoted(root/"replace-backup.json")}'
 $before=[IO.File]::ReadAllBytes($manifest);$doc=Get-Content -LiteralPath $manifest -Raw -Encoding UTF8|ConvertFrom-Json
 $pads=@($doc.Controllers|Where-Object{{$_.Type-eq'Keypad'-and$null-ne$_.Actions.PSObject.Properties['3_2']}});if($pads.Count-ne1){{throw 'shape'}}
-$entry=[ordered]@{{Action='com.arkamax.ulanzi.imageslide.slideshow';ActionID=[guid]::NewGuid().ToString();ActionParam=[ordered]@{{SmallViewMode=2}};LinkedTitle=$true;Name='Image Slideshow';Plugin=[ordered]@{{Name='Image Slideshow';UUID='com.arkamax.ulanzi.imageslide';Version='0.7.2'}};State=0;ViewParam=@([ordered]@{{Icon='';IconRel='';Name='Image Slideshow'}})}}
+$entry=[ordered]@{{Action='com.arkamax.ulanzi.imageslide.slideshow';ActionID=[guid]::NewGuid().ToString();ActionParam=[ordered]@{{SmallViewMode=2}};LinkedTitle=$true;Name='Image Slideshow';Plugin=[ordered]@{{Name='Image Slideshow';UUID='com.arkamax.ulanzi.imageslide';Version='0.7.3'}};State=0;ViewParam=@([ordered]@{{Icon='';IconRel='';Name='Image Slideshow'}})}}
 $pads[0].Actions|Add-Member -NotePropertyName '3_2' -NotePropertyValue $entry -Force;$temp=$manifest+'.tmp';[IO.File]::WriteAllText($temp,($doc|ConvertTo-Json -Depth 30),(New-Object Text.UTF8Encoding($false)))
 $check=Get-Content -LiteralPath $temp -Raw -Encoding UTF8|ConvertFrom-Json;if($check.Controllers[1].Actions.'3_2'.Action-ne'com.arkamax.ulanzi.imageslide.slideshow'){{throw 'temp-readback'}}
 [IO.File]::Replace($temp,$manifest,$backup);$after=Get-Content -LiteralPath $manifest -Raw -Encoding UTF8|ConvertFrom-Json;$patched=[IO.File]::ReadAllBytes($manifest)
@@ -297,15 +297,15 @@ $restoreTemp=$manifest+'.restore';Copy-Item -LiteralPath $backup -Destination $r
         self.assertIn("* text=auto eol=lf",attributes)
         for pattern in ("*.png binary","*.zip binary","*.ulanziDeckProfile binary"):self.assertIn(pattern,attributes)
         store=json.loads((ROOT/"store.json").read_text(encoding="utf-8"))
-        self.assertEqual(store["cover"],"assets/cover.png")
-        self.assertEqual(store["screenshots"],["assets/banner.png"])
+        self.assertEqual(store["cover"],"resources/store/cover.png")
+        self.assertEqual(store["screenshots"],["resources/store/banner.png"])
         self.assertIn("Windows x64 and macOS x64/arm64",store["longDescription"])
         self.assertIn("reopen Studio manually",store["longDescription"])
         self.assertIn("clock overlay can remain visible",store["longDescription"])
         self.assertIn("https://github.com/chilleno/claude-deck",store["longDescription"])
         self.assertIn("windows",store["tags"]);self.assertIn("mac",store["tags"]);self.assertNotIn("macos",store["tags"])
         cover_width,cover_height=tool.PNG_DIMS((ROOT/store["cover"]).read_bytes());banner_width,banner_height=tool.PNG_DIMS((ROOT/store["screenshots"][0]).read_bytes())
-        self.assertAlmostEqual(cover_width/cover_height,16/9,delta=0.002);self.assertAlmostEqual(banner_width/banner_height,3,delta=0.002)
+        self.assertAlmostEqual(cover_width/cover_height,2,delta=0.002);self.assertAlmostEqual(banner_width/banner_height,3/2,delta=0.002)
         self.assertGreaterEqual(cover_width,1200);self.assertGreaterEqual(banner_width,1200)
         manifest=json.loads((PLUGIN/"manifest.json").read_text(encoding="utf-8"))
         self.assertEqual(manifest["OS"],[{"Platform":"windows","MinimumVersion":"10"},{"Platform":"mac","MinimumVersion":"13"}])
@@ -336,7 +336,7 @@ $restoreTemp=$manifest+'.restore';Copy-Item -LiteralPath $backup -Destination $r
         plugin_root="com.arkamax.ulanzi.imageslide.ulanziPlugin"
         with zipfile.ZipFile(ROOT/(plugin_root+".zip")) as archive:
             self.assertIsNone(archive.testzip());names=archive.namelist();self.assertEqual({Path(n).parts[0] for n in names},{plugin_root})
-            manifest=json.loads(archive.read(plugin_root+"/manifest.json"));self.assertEqual(manifest["Version"],"0.7.2");self.assertEqual(manifest["Author"],"Santiago P\u00e9rez")
+            manifest=json.loads(archive.read(plugin_root+"/manifest.json"));self.assertEqual(manifest["Version"],"0.7.3");self.assertEqual(manifest["Author"],"Santiago P\u00e9rez")
             for name in names:
                 if not name.endswith("/"):self.assertNotIn(b"Get-FileHash",archive.read(name))
             for member in ("plugin/app.js","plugin/images.js","plugin/setup.js","property-inspector/inspector.html","property-inspector/setup.html","helper/Start-ImageSlideSetup.ps1","helper/Invoke-ImageSlideSetup.ps1","helper/Invoke-ImageSlideSetup.mjs","helper/compatibility.json","node_modules/sharp/dist/index.mjs","node_modules/ws/lib/websocket.js","node_modules/@img/sharp-win32-x64/lib/sharp-win32-x64-0.35.4.node","node_modules/@img/sharp-darwin-x64/lib/sharp-darwin-x64-0.35.4.node","node_modules/@img/sharp-libvips-darwin-x64/lib/libvips-cpp.8.18.6.dylib","node_modules/@img/sharp-darwin-arm64/lib/sharp-darwin-arm64-0.35.4.node","node_modules/@img/sharp-libvips-darwin-arm64/lib/libvips-cpp.8.18.6.dylib"):

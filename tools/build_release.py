@@ -37,8 +37,8 @@ DELIVERY_FILES = (
     PROFILE,
     PROFILE_RECEIPT,
     ROOT / "store.json",
-    ROOT / "assets" / "cover.png",
-    ROOT / "assets" / "banner.png",
+    ROOT / "resources" / "store" / "cover.png",
+    ROOT / "resources" / "store" / "banner.png",
 )
 PRIVACY_MARKERS = (
     b"D:" + b"\\Desarrollo",
