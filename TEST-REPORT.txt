@@ -1,4 +1,4 @@
-ImageSlidePlugin 0.7.2 universal release verification
+ImageSlidePlugin 0.7.3 universal release verification
 ================================================================
 
 Scope
@@ -127,5 +127,5 @@ Physical validation status and limitations
 - Windows automated verification passed 59/59 Node tests and 30/30 available Python tests; 2
   production-shape profile tests remain skipped because their optional external fixture was absent.
 - macOS arm64 packages were statically validated only; Apple Silicon was not physically tested.
-- Store artwork ratios are enforced as 16:9 cover and 3:1 banner with rounding tolerance and minimum 1200 px width.
+- Authoritative `resources/store` artwork is enforced as 2:1 cover and 3:2 banner with rounding tolerance and minimum 1200 px width.
 - Publication and upload occur only after this report, the clean artifacts, and their checksums pass.
