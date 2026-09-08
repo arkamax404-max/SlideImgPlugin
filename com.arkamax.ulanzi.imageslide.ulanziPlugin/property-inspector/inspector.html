@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Image Slideshow</title>
   <style>
-    :root{color-scheme:dark;font:13px system-ui,sans-serif}body{margin:0;padding:12px;background:#1e1f22;color:#eee}.row{margin:0 0 12px}label{display:block;margin-bottom:5px;color:#bbb}input,select,button{box-sizing:border-box;width:100%;padding:7px;border:1px solid #555;border-radius:4px;background:#292b2f;color:#fff}input[readonly]{color:#ccc}button{cursor:pointer;background:#315d94}.inline{display:flex;gap:8px}.inline>*{flex:1}.check{display:flex;align-items:center;gap:8px}.check input{width:auto}.status{padding:8px;border-radius:4px;background:#292b2f}.status.error{border-left:4px solid #e05252}.status.warning{border-left:4px solid #e2a93b}.status.ready{border-left:4px solid #4ea76f}.hint{font-size:11px;color:#999;margin-top:5px}
+    :root{color-scheme:dark;font:13px system-ui,sans-serif}body{margin:0;padding:12px;background:#1e1f22;color:#eee}h3{font-size:14px;margin:18px 0 10px;padding-top:10px;border-top:1px solid #3b3d42}.row{margin:0 0 12px}label{display:block;margin-bottom:5px;color:#bbb}input,select,button{box-sizing:border-box;width:100%;padding:7px;border:1px solid #555;border-radius:4px;background:#292b2f;color:#fff}input[readonly]{color:#ccc}button{cursor:pointer;background:#315d94}.inline{display:flex;gap:8px}.inline>*{flex:1}.check{display:flex;align-items:center;gap:8px}.check input{width:auto}.status{padding:8px;border-radius:4px;background:#292b2f}.status.error{border-left:4px solid #e05252}.status.warning{border-left:4px solid #e2a93b}.status.ready{border-left:4px solid #4ea76f}.hint{font-size:11px;color:#999;margin-top:5px}
   </style>
 </head>
 <body>
@@ -16,6 +16,14 @@
   <div class="row check"><input id="show-date-time" type="checkbox"><label for="show-date-time">Show date and time between slides</label></div>
   <div id="date-time-schedule" class="row inline" hidden><div><label for="date-time-every">Every (slides)</label><input id="date-time-every" type="number" min="1" max="10000" step="1" value="5"></div><div><label for="date-time-duration">Duration (seconds)</label><input id="date-time-duration" type="number" min="1" max="3600" step="1" value="5"></div></div>
   <div id="date-format-options" class="row" hidden><label for="date-format">Date format</label><select id="date-format"><option value="system">System default (recommended)</option><option value="dmy">DD/MM/YYYY</option><option value="mdy">MM/DD/YYYY</option></select><div class="hint">System default follows the Windows or macOS date order, language, and 12/24-hour clock.</div></div>
+  <h3>Weather forecast</h3>
+  <div class="row check"><input id="weather-only" type="checkbox"><label for="weather-only">Weather only (disable image slideshow)</label></div>
+  <div class="row check"><input id="show-weather" type="checkbox"><label for="show-weather">Show weather between slides</label></div>
+  <div id="weather-config" hidden><div class="row"><label for="weather-api-key">WeatherAPI key</label><input id="weather-api-key" type="password" maxlength="256" autocomplete="off" placeholder="Required"><div class="hint">Stored locally by Ulanzi Studio. Never included in logs or display data.</div></div><div class="row"><label for="weather-location">Location</label><input id="weather-location" maxlength="200" placeholder="City, postcode, or latitude,longitude"></div><div class="row"><label for="weather-units">Units</label><select id="weather-units"><option value="c">Celsius · km/h</option><option value="f">Fahrenheit · mph</option></select></div></div>
+  <div id="weather-schedule" class="row inline" hidden><div><label for="weather-every">Every (slides)</label><input id="weather-every" type="number" min="1" max="10000" step="1" value="5"></div><div><label for="weather-duration">Duration (seconds)</label><input id="weather-duration" type="number" min="1" max="3600" step="1" value="8"></div></div>
+  <div class="row"><div id="weather-status" class="status warning">Weather is disabled.</div></div>
+  <button id="refresh-weather" type="button">Refresh weather</button>
+  <h3>Image status</h3>
   <div class="row"><div id="status" class="status ready">Connecting…</div></div>
   <button id="refresh" type="button">Refresh folder</button>
   <script src="inspector.js"></script>

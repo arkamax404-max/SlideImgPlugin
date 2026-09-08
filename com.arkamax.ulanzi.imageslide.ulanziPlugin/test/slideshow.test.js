@@ -10,6 +10,7 @@ import { loadSlide, pngDimensions } from "../plugin/images.js";
 
 const root=resolve(dirname(fileURLToPath(import.meta.url)),"..");
 const svg=(color="#123456",width=458,height=196)=>`<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}"><rect width="${width}" height="${height}" fill="${color}"/></svg>`;
+const weatherResponse=(location="Madrid")=>({location:{name:location,country:"Spain"},current:{last_updated_epoch:1788858000,temp_c:22,temp_f:71.6,feelslike_c:22.5,feelslike_f:72.5,humidity:48,wind_kph:14,wind_mph:8.7,is_day:1,condition:{text:"Partly cloudy",code:1003}},forecast:{forecastday:[0,1,2].map((offset)=>({date:`2026-09-${String(8+offset).padStart(2,"0")}`,day:{mintemp_c:15+offset,maxtemp_c:24+offset,mintemp_f:59+offset,maxtemp_f:75+offset,daily_chance_of_rain:20+offset,condition:{code:offset===1?1183:1003}}}))}});
 
 function fakeRuntime() {
   const handlers={},sent=[],pi=[],saved=[];
@@ -23,21 +24,21 @@ function fakeRuntime() {
 
 test("manifest and Property Inspector use the Studio 3.2.11 contract",()=>{
   const manifest=JSON.parse(readFileSync(join(root,"manifest.json"),"utf8"));
-assert.equal(PLUGIN_UUID.split(".").length,4);assert.equal(manifest.UUID,PLUGIN_UUID);assert.equal(manifest.Version,"0.5.1");assert.equal(manifest.Actions[0].UUID,ACTION_UUID);assert.equal(manifest.Author,"Santiago P\u00e9rez");
+assert.equal(PLUGIN_UUID.split(".").length,4);assert.equal(manifest.UUID,PLUGIN_UUID);assert.equal(manifest.Version,"0.6.0");assert.equal(manifest.Actions[0].UUID,ACTION_UUID);assert.equal(manifest.Author,"Santiago P\u00e9rez");
   assert.match(manifest.Description,/automatically resizes/i);assert.match(manifest.Overview,/458 x 196/);assert.match(manifest.Overview,/without changing the originals/i);
   const icon=readFileSync(join(root,"resources","icon.svg"),"utf8");assert.match(icon,/linearGradient id="background"/);assert.equal((icon.match(/stroke="#dcecff"/g)||[]).length,2);assert.match(icon,/id="mountain"/);
   assert.equal(manifest.Actions[0].PropertyInspectorPath,"property-inspector/inspector.html");assert.equal(manifest.Software.MinVersion,"3.0.11");
   const pi=readFileSync(join(root,"property-inspector","inspector.js"),"utf8");
   assert.match(pi,/selectFolderDialog\(\).*send\("selectdialog",\{type:"folder"\}\)/s);assert.match(pi,/onSelectdialog\(message\).*message\.path/s);
-  for(const control of ["date-time-only","show-date-time","date-time-every","date-time-duration","date-format"])assert.ok(pi.includes(control));
+  for(const control of ["date-time-only","show-date-time","date-time-every","date-time-duration","date-format","weather-only","show-weather","weather-api-key","weather-location","weather-units","weather-every","weather-duration"])assert.ok(pi.includes(control));
   for(const command of ["sendToPlugin","getGlobalSettings","didReceiveGlobalSettings","sendToPropertyInspector"])assert.ok(pi.includes(command));
   assert.equal(readFileSync(join(root,"plugin","slideshow.js"),"utf8").includes("setImage"),false);
 });
 
 test("settings validation enforces a safe global configuration",async()=>{
-  assert.deepEqual(normalizeSettings({folderPath:"C:\\Images",intervalSeconds:5,loop:false,sort:"date"}),{folderPath:"C:\\Images",intervalSeconds:5,loop:false,sort:"date",showDateTime:false,dateTimeOnly:false,dateTimeEverySlides:5,dateTimeDurationSeconds:5,dateFormat:"system"});
+  assert.deepEqual(normalizeSettings({folderPath:"C:\\Images",intervalSeconds:5,loop:false,sort:"date"}),{folderPath:"C:\\Images",intervalSeconds:5,loop:false,sort:"date",showDateTime:false,dateTimeOnly:false,dateTimeEverySlides:5,dateTimeDurationSeconds:5,dateFormat:"system",showWeather:false,weatherOnly:false,weatherApiKey:"",weatherLocation:"",weatherUnits:"c",weatherEverySlides:5,weatherDurationSeconds:8});
   assert.deepEqual(normalizeSettings({showDateTime:true,dateTimeEverySlides:"3",dateTimeDurationSeconds:"8"}).dateTimeEverySlides,3);
-  assert.throws(()=>normalizeSettings({intervalSeconds:4}),/between 5/);assert.throws(()=>normalizeSettings({loop:"yes"}),/true or false/);assert.throws(()=>normalizeSettings({sort:"random"}),/name or date/);assert.throws(()=>normalizeSettings({showDateTime:"yes"}),/true or false/);assert.throws(()=>normalizeSettings({dateTimeOnly:"yes"}),/true or false/);assert.throws(()=>normalizeSettings({dateTimeEverySlides:0}),/frequency/);assert.throws(()=>normalizeSettings({dateTimeDurationSeconds:1.5}),/duration/);assert.throws(()=>normalizeSettings({dateFormat:"ymd"}),/Date format/);
+  assert.throws(()=>normalizeSettings({intervalSeconds:4}),/between 5/);assert.throws(()=>normalizeSettings({loop:"yes"}),/true or false/);assert.throws(()=>normalizeSettings({sort:"random"}),/name or date/);assert.throws(()=>normalizeSettings({showDateTime:"yes"}),/true or false/);assert.throws(()=>normalizeSettings({dateTimeOnly:"yes"}),/true or false/);assert.throws(()=>normalizeSettings({dateTimeEverySlides:0}),/frequency/);assert.throws(()=>normalizeSettings({dateTimeDurationSeconds:1.5}),/duration/);assert.throws(()=>normalizeSettings({dateFormat:"ymd"}),/Date format/);assert.throws(()=>normalizeSettings({showWeather:"yes"}),/true or false/);assert.throws(()=>normalizeSettings({weatherUnits:"kelvin"}),/units/);assert.throws(()=>normalizeSettings({weatherEverySlides:0}),/frequency/);assert.throws(()=>normalizeSettings({dateTimeOnly:true,weatherOnly:true}),/cannot both/);
   const config=await loadConfiguration(root);assert.equal(config.fallbackSlides.length,2);assert.ok(config.fallbackSlides.every(s=>s.signature&&s.dataUri.startsWith("data:image/svg+xml;base64,")));
 });
 
@@ -91,6 +92,33 @@ test("date and time only mode continuously renders the clock without scanning or
   await r.handlers.send({uuid:ACTION_UUID,context,payload:{type:"updateSettings",settings:{folderPath:"C:\\Images",intervalSeconds:5,loop:true,sort:"name",showDateTime:false,dateTimeOnly:true,dateTimeEverySlides:2,dateTimeDurationSeconds:3,dateFormat:"dmy"}}});
   const firstClock=r.sent.at(-1).data;assert.match(Buffer.from(firstClock.split(",",2)[1],"base64").toString("utf8"),/date-time|font-size="66"/);assert.equal(fsCalls,0);assert.equal(watchCalls,0);
   now=2000;await r.timers.fn();assert.notEqual(r.sent.at(-1).data,firstClock);assert.equal(service.index,0);assert.equal(fsCalls,0);assert.equal(watchCalls,0);
+});
+
+test("scheduler inserts weather, refreshes safely, and keeps stale forecast on failure",async()=>{
+  const r=fakeRuntime(),config=await loadConfiguration(root),logs=[];let now=1000,calls=0,fail=false;
+  const fetchImpl=async()=>{calls++;if(fail)throw new Error("network secret");return{ok:true,text:async()=>JSON.stringify(weatherResponse())}};
+  const service=new SlideshowService({client:r.client,configuration:config,timerApi:r.timers,now:()=>now,fetchImpl,logger:(...parts)=>logs.push(parts.join(" "))});service.bind();const context=`${ACTION_UUID}___3_2___weather`;r.handlers.add({uuid:ACTION_UUID,context});
+  await r.handlers.send({uuid:ACTION_UUID,context,payload:{type:"updateSettings",settings:{...service.settings,intervalSeconds:5,showWeather:true,weatherApiKey:"top-secret-key",weatherLocation:"Madrid",weatherEverySlides:2,weatherDurationSeconds:3}}});assert.equal(calls,1);assert.equal(service.weatherStatus.level,"ready");const metricSlide=service.weatherSlide.dataUri;
+  now=6000;await r.timers.fn();assert.equal(service.index,1);now=11000;await r.timers.fn();assert.equal(service.showingWeather,true);assert.match(r.sent.at(-1).data,/^data:image\/png;base64,/);assert.equal(service.weatherData.location,"Madrid");
+  now=14000;await r.timers.fn();assert.equal(service.showingWeather,false);assert.equal(service.index,0);
+  fail=true;await service.refreshWeather(true);assert.equal(calls,2);assert.equal(service.weatherStatus.level,"warning");assert.equal(service.weatherData.location,"Madrid");
+  await service.applySettings({...service.settings,weatherUnits:"f"},false);assert.equal(calls,2);assert.notEqual(service.weatherSlide.dataUri,metricSlide);
+  await service.applySettings({...service.settings,weatherLocation:"Barcelona"},false);assert.equal(calls,3);assert.equal(service.weatherData,null);assert.equal(service.weatherStatus.level,"error");assert.equal(logs.some(line=>line.includes("top-secret-key")||line.includes("network secret")),false);
+});
+
+test("weather-only mode avoids image access and continuously shows the forecast",async()=>{
+  const r=fakeRuntime(),config=await loadConfiguration(root);let now=1000,fsCalls=0,watchCalls=0;
+  const service=new SlideshowService({client:r.client,configuration:config,timerApi:r.timers,now:()=>now,fsApi:{lstatSync(){fsCalls++;throw Error()},readdirSync(){fsCalls++;throw Error()}},watchFactory(){watchCalls++;throw Error()},fetchImpl:async()=>({ok:true,text:async()=>JSON.stringify(weatherResponse())}),logger(){}});service.bind();const context=`${ACTION_UUID}___3_2___weather-only`;r.handlers.add({uuid:ACTION_UUID,context});
+  await r.handlers.send({uuid:ACTION_UUID,context,payload:{type:"updateSettings",settings:{...service.settings,folderPath:"C:\\Images",weatherOnly:true,weatherApiKey:"key",weatherLocation:"Madrid"}}});const frame=r.sent.at(-1).data;assert.match(frame,/^data:image\/png;base64,/);assert.equal(service.weatherData.location,"Madrid");assert.equal(fsCalls,0);assert.equal(watchCalls,0);
+  now=2000;await r.timers.fn();assert.equal(service.index,0);assert.equal(fsCalls,0);assert.equal(watchCalls,0);
+});
+
+test("changing weather location discards an in-flight response for the previous city",async()=>{
+  const r=fakeRuntime(),config=await loadConfiguration(root),requests=[];
+  const fetchImpl=(url)=>new Promise(resolve=>requests.push({url,resolve})),service=new SlideshowService({client:r.client,configuration:config,timerApi:r.timers,fetchImpl,logger(){}});
+  const madrid=service.applySettings({...service.settings,showWeather:true,weatherApiKey:"key",weatherLocation:"Madrid"},false);await Promise.resolve();assert.equal(requests.length,1);
+  const barcelona=service.applySettings({...service.settings,weatherLocation:"Barcelona"},false);requests[0].resolve({ok:true,text:async()=>JSON.stringify(weatherResponse("Madrid"))});await madrid;await Promise.resolve();assert.equal(requests.length,2);assert.equal(requests[1].url.searchParams.get("q"),"Barcelona");
+  requests[1].resolve({ok:true,text:async()=>JSON.stringify(weatherResponse("Barcelona"))});await barcelona;assert.equal(service.weatherData.location,"Barcelona");
 });
 
 test("PI settings persist globally and empty/error folders use bundled fallback",async()=>{

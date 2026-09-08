@@ -1,10 +1,10 @@
 {
   "UUID": "com.arkamax.ulanzi.imageslide",
   "Name": "Image Slideshow",
-  "Description": "Offline slideshow that automatically resizes images for the Ulanzi D200 center display.",
-  "Overview": "Automatically resize and center-crop local images to 458 x 196 without changing the originals.",
+  "Description": "Automatically resizes slideshow images and adds a localized clock or optional forecast for the Ulanzi D200.",
+  "Overview": "Center-crop local images to 458 x 196 without changing the originals, with optional date, time, and forecast.",
   "Author": "Santiago P\u00e9rez",
-  "Version": "0.5.1",
+  "Version": "0.6.0",
   "Icon": "resources/icon.svg",
   "Category": "Arkamax",
   "CategoryIcon": "resources/category.svg",
@@ -15,7 +15,7 @@
   "Actions": [
     {
       "Name": "Image Slideshow",
-      "Tooltip": "Automatically resize to 458 x 196 and rotate local images without changing the originals.",
+      "Tooltip": "Rotate auto-fitted images and optionally show a localized clock or WeatherAPI forecast.",
       "Icon": "resources/action.svg",
       "UUID": "com.arkamax.ulanzi.imageslide.slideshow",
       "PropertyInspectorPath": "property-inspector/inspector.html",

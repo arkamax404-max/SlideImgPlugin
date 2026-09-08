@@ -2,9 +2,9 @@
 
 Created by **Santiago Pérez**.
 
-ImageSlidePlugin keeps Ulanzi Studio and its plugins intact. It installs **Image Slideshow**, imports an independently identified profile clone, and lets you choose an external image folder from the Property Inspector.
+ImageSlidePlugin keeps Ulanzi Studio and its plugins intact. It installs **Image Slideshow**, imports an independently identified profile clone, and lets you combine local images, a localized clock, and an optional WeatherAPI forecast from the Property Inspector.
 
-Version **0.5.1** is packaged from one source tree as one universal `*.ulanziPlugin.zip` for Windows x64, macOS x64, and macOS arm64. It automatically center-crops images of other sizes to 458 x 196 in memory while leaving the original files untouched.
+Version **0.6.0** is packaged from one source tree as one universal `*.ulanziPlugin.zip` for Windows x64, macOS x64, and macOS arm64. It automatically center-crops images of other sizes to 458 x 196 in memory while leaving the original files untouched.
 
 An existing successful **0.1.9** Setup patch does not need to be patched again. Select **Restore original** before pressing Setup; 0.2.0 accepts that version's verified `apply-or-repair` receipt and backup, binds them into a new restore request, and restores the exact pre-0.1.9 bytes after Studio closes. Missing, ambiguous, changed, or tampered lineage fails closed.
 
@@ -55,6 +55,28 @@ The date/time screen updates once per second with a large clock and a bold weekd
 
 Image folder settings remain saved while **Date and time only** is active, so disabling that mode resumes the slideshow without reconfiguration.
 
+### Show weather
+
+Weather mode displays current conditions plus a three-day forecast using bundled [Meteocons](https://github.com/basmilius/meteocons) icons. Images and the date/time screen remain fully local; only weather refreshes require network access.
+
+1. Create a WeatherAPI account and copy its API key.
+2. Enable **Show weather between slides** or **Weather only**.
+3. Enter the key and a location such as a city, postcode, or `latitude,longitude`.
+4. Choose Celsius/km/h or Fahrenheit/mph and press **Refresh weather**.
+
+| Mode or setting | Behavior |
+|---|---|
+| **Show weather between slides** | Inserts weather after the configured number of images for the configured duration |
+| **Weather only** | Disables image rotation, folder rescans, and the image watcher; weather stays visible |
+| Forecast | Current conditions and three days, compatible with the WeatherAPI Free plan |
+| Refresh | Every 30 minutes; failed updates retry after five minutes |
+| Failure | Keeps the last forecast for the same location; image rotation continues if no forecast is available |
+| Language | Weather condition text and day names follow the system language when WeatherAPI supports it |
+
+The API key field is masked, but Ulanzi Studio stores the key in plain text with the plugin's global settings. The plugin sends it only to `https://api.weatherapi.com`, never logs it, and never includes it in display data. WeatherAPI's Free plan currently allows 100,000 calls per month and a three-day forecast; review [WeatherAPI pricing](https://www.weatherapi.com/pricing.aspx) for current terms. Weather data is provided by [WeatherAPI.com](https://www.weatherapi.com/).
+
+Meteocons Static 0.1.0 is bundled under the MIT License. Its copyright and license text are included in `resources/weather/LICENSE-METEOCONS.txt`.
+
 Every generated large-display assignment persists `ActionParam.SmallViewMode: 2`. This suppresses the clock on the validated Windows path. **Known macOS limitation:** Studio can still render its clock overlay above the slideshow.
 
 ## Toggle the large display
@@ -96,6 +118,8 @@ The state machine has only three outcomes: built-in small-window → patch, Imag
 - [ ] Images rotate in the selected order and interval.
 - [ ] Periodic date/time mode appears at the selected frequency and duration.
 - [ ] Date/time-only mode keeps the localized clock visible without image rotation.
+- [ ] Weather mode shows current conditions and a three-day forecast without exposing the API key.
+- [ ] Weather-only mode stops image monitoring and retains the last valid same-location forecast during a transient failure.
 - [ ] Atomic file replacement is detected without showing incomplete content.
 - [ ] Empty/deleted/inaccessible folders show bundled fallback slides.
 - [ ] Leaving the active page stops slideshow scheduling and watching.
@@ -115,6 +139,8 @@ For a failed Setup apply, the helper attempts automatic byte-for-byte restoratio
 ## Acknowledgements
 
 Special thanks to the author of [chilleno/claude-deck](https://github.com/chilleno/claude-deck) for publicly documenting the profile technique that made safe use of the Ulanzi D200 large display possible. ImageSlidePlugin adapts that discovery with strict target validation, backups, atomic replacement, readback, rollback, and restore controls.
+
+Weather icons are from [Meteocons](https://github.com/basmilius/meteocons) by Bas Milius, used under the MIT License. Weather data is provided by [WeatherAPI.com](https://www.weatherapi.com/).
 
 ## Design evidence and limitations
 

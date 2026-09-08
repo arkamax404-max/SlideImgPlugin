@@ -56,3 +56,7 @@ Use **Show date and time between slides** to configure its image frequency and v
 ## Updating 0.5.0 to 0.5.1
 
 Version 0.5.1 fixes Setup state and Restore lineage across newly created pages and repeated Windows `Install -> Restore` cycles. Existing 0.5.0 backups and receipts remain valid. New Windows patch receipts include a center-action fingerprint, and the helper prefers that stronger lineage over compatible legacy receipts without choosing by timestamp.
+
+## Updating 0.5.1 to 0.6.0
+
+Version 0.6.0 adds optional WeatherAPI current conditions and a three-day forecast in periodic or weather-only modes. Existing image, date/time, Setup, backup, and receipt behavior remains compatible, and weather is disabled by default. Users who enable it provide their own WeatherAPI key and location in the Property Inspector.
