@@ -153,7 +153,7 @@ Clock and calendar symbols are from [Lucide](https://github.com/lucide-icons/luc
 
 ## Design evidence and limitations
 
-- Community Store artwork keeps a 2:1 cover and 3:2 banner under `resources/store`; delivery tests enforce both ratios with a small rounding tolerance and a minimum width of 1200 px.
+- Community Store artwork uses a crop-safe 1200 × 630 JPEG cover and a 3:2 banner under `resources/store`. Essential cover content stays inside generous margins so both official and Community Store renderers preserve it.
 - Studio 3.2.11 uses protocol 2.1.2 `setBaseDataIcon`; this package does not use the newer `setImage` API.
 - Official Ulanzi Property Inspector contract: `selectFolderDialog()` returns through `onSelectdialog(message.path)`; global settings use `settings`, and PI pass-through uses `payload`.
 - The private `3_2` patch follows the active device/profile/page resolution shape demonstrated by [chilleno/claude-deck](https://github.com/chilleno/claude-deck/blob/main/apply-bigkey.sh), adapted to Windows with strict compatibility, backup, atomic replacement, and rollback gates.

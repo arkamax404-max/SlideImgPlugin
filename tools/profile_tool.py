@@ -19,6 +19,22 @@ def PNG_DIMS(data: bytes):
     if len(data) < 24 or data[:8] != b"\x89PNG\r\n\x1a\n" or data[12:16] != b"IHDR": raise ProfileError("Invalid PNG asset")
     return int.from_bytes(data[16:20], "big"), int.from_bytes(data[20:24], "big")
 
+def JPEG_DIMS(data: bytes):
+    if len(data) < 4 or data[:2] != b"\xff\xd8": raise ProfileError("Invalid JPEG asset")
+    offset = 2
+    while offset + 3 < len(data):
+        if data[offset] != 0xFF: offset += 1; continue
+        marker = data[offset + 1]; offset += 2
+        if marker in (0xD8, 0xD9): continue
+        if offset + 2 > len(data): break
+        length = int.from_bytes(data[offset:offset + 2], "big")
+        if length < 2 or offset + length > len(data): break
+        if marker in (0xC0,0xC1,0xC2,0xC3,0xC5,0xC6,0xC7,0xC9,0xCA,0xCB,0xCD,0xCE,0xCF):
+            if length < 7: break
+            return int.from_bytes(data[offset + 5:offset + 7], "big"), int.from_bytes(data[offset + 3:offset + 5], "big")
+        offset += length
+    raise ProfileError("JPEG dimensions not found")
+
 def read_archive(path: Path):
     data = path.read_bytes()
     if not data.startswith(HEADER): raise ProfileError("Input must start with the exact '#Version: 2\\n' header")
