@@ -1,4 +1,4 @@
-ImageSlidePlugin 0.6.0 universal release verification
+ImageSlidePlugin 0.7.0 universal release verification
 ================================================================
 
 Scope
@@ -9,33 +9,40 @@ Scope
 - Configurable localized date/time screen between images or as an exclusive clock-only display.
 - Setup diagnostics and Windows Restore lineage remain bound across new pages and repeated cycles.
 - Optional WeatherAPI current conditions and three-day forecast with bundled MIT Meteocons.
+- Independent content controls, two-panel clock, CPU/GPU/RAM screen, and ordered due-panel queue.
 - The active Windows plugin was backed up and updated for physical validation; packaging did not modify the live profile or D200 state.
 
 Release work units
 ------------------
-1. WeatherAPI forecast display
+1. Independent content rotation and system resources
+   - Image/date/weather/system choices, legacy-only-mode migration, two-panel Lucide clock,
+     CPU/GPU/RAM cards, information-only rotation, and ordered due-panel queuing.
+   - Focused verification: Node source tests 59/59. Runtime boundary: physical Windows D200
+     metrics, panel layouts, no-image rotation, and equal-frequency sequential order.
+   - Rollback boundary: slideshow/system runtime, Inspector, Lucide license, docs, and tests.
+2. WeatherAPI forecast display
    - Periodic and weather-only modes, three-day forecast, Celsius/Fahrenheit, localized labels,
      bounded HTTPS responses, stale-data fallback, request race protection, and flat PNG rendering.
    - Focused verification: Node source tests 54/54. Runtime boundary: physical Windows D200
      WeatherAPI data, Meteocons visibility, and final typography acceptance.
    - Rollback boundary: weather module/assets, slideshow/Inspector integration, docs, and tests.
-2. Setup diagnostic and Restore lineage correction
+3. Setup diagnostic and Restore lineage correction
    - Instance-bound failed diagnostics, safe legacy semantic normalization, center fingerprints,
      and deterministic priority for matching fingerprinted receipts across repeated cycles.
    - Focused verification: Node source tests 47/47. Runtime boundary: Windows D200
      new-page Setup and Restore -> Install -> Restore cycle.
    - Rollback boundary: Setup runtime, Windows/macOS helpers, migration notes, and their tests.
-3. Localized date/time display
+4. Localized date/time display
    - Periodic insertion with configurable image frequency and duration, continuous clock-only mode,
      localized weekday, system date/time conventions, and explicit date-order overrides.
    - Focused verification: Node source tests 47/47. Runtime boundary: physical Windows D200 acceptance.
    - Rollback boundary: slideshow runtime, Property Inspector, settings, documentation, and tests.
-4. Universal platform contract and Setup hardening
+5. Universal platform contract and Setup hardening
    - Official `windows`/`mac` manifest and Store platform tokens, Darwin dispatch,
      ProfilesV2-only claims, manual reopen, and tested post-rename rollback.
    - Focused verification: Node source tests 45/45. Runtime boundary: temp-fixture helper lifecycle.
    - Rollback boundary: manifest/store metadata, macOS helper, setup dispatch, and their Node tests.
-5. Reproducible universal packaging and delivery gates
+6. Reproducible universal packaging and delivery gates
    - Lock-integrity downloads, explicit target inventory, PE/Mach-O inspection, deterministic ZIPs,
      platform-aware Python tests, and Studio Node x64 decode harness.
    - Focused verification: stage PASS; Python final 30 passed/2 skipped; Studio Node harness PASS.
@@ -45,16 +52,16 @@ Release work units
    - Delivery-wide privacy checks inspect standalone files plus every member of the plugin, source,
      helper, and profile archives. The portable profile receipt omits all source identity provenance.
    - Rollback boundary: tools/profile_tool.py, tools/build_release.py, and tests/test_delivery.py.
-6. Release documentation and local artifacts
+7. Release documentation and local artifacts
    - README, MIGRATION, Store copy, TEST-REPORT, three ZIPs, and SHA256SUMS.
    - Focused verification: deterministic rebuild produced identical ZIP hashes; ZIP/checksum readback PASS.
    - Rollback boundary: documentation and generated local artifacts only.
 
-Node source tests: PASS (54/54)
+Node source tests: PASS (59/59)
 --------------------------------
 Command: npm test
 Environment: Windows repository source package; Node v24.15.0; npm 10.8.0.
-- Protocol, slideshow, image filtering/resizing, localized clock/weather modes, WeatherAPI failures/races, Setup lineage, watcher, settings, and lifecycle tests passed.
+- Protocol, slideshow, image filtering/resizing, clock/weather/system modes, ordered panel queue, platform metric fallbacks, WeatherAPI failures/races, Setup lineage, watcher, settings, and lifecycle tests passed.
 - Windows helper dispatch, instance-bound diagnostics, semantic legacy recovery, fingerprint
   validation/priority, and fail-closed safety assertions passed.
 - Darwin dispatch, ProfilesV2-only target resolution, Setup/Restore lineage, bounded diagnostics,
@@ -114,8 +121,10 @@ Physical validation status and limitations
   and continuous date/time-only mode were accepted on the physical Windows D200.
 - Periodic/weather-only modes, flat PNG Meteocons, three-day forecast cards, and final typography
   were accepted on the physical Windows D200.
+- Independent content controls, two-panel Lucide clock, live CPU/GPU/RAM cards, information-only
+  rotation, and date/weather/system due-panel sequencing were accepted on the physical Windows D200.
 - Windows Setup accepted a physical Restore -> Install -> Restore cycle after Studio normalization.
-- Windows automated verification passed 54/54 Node tests and 30/30 available Python tests; 2
+- Windows automated verification passed 59/59 Node tests and 30/30 available Python tests; 2
   production-shape profile tests remain skipped because their optional external fixture was absent.
 - macOS arm64 packages were statically validated only; Apple Silicon was not physically tested.
 - Publication and upload occur only after this report, the clean artifacts, and their checksums pass.
