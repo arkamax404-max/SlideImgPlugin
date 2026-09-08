@@ -178,11 +178,10 @@ export class SlideshowService {
     const weatherLocationChanged=settings.weatherLocation!==this.settings.weatherLocation, weatherUnitsChanged=settings.weatherUnits!==this.settings.weatherUnits, wasWeatherEnabled=this.settings.showWeather, willWeatherBeEnabled=settings.showWeather, weatherChanged=settings.weatherApiKey!==this.settings.weatherApiKey||weatherLocationChanged||wasWeatherEnabled!==willWeatherBeEnabled;
     if(weatherChanged||weatherUnitsChanged)this.weatherGeneration++;
     if(weatherLocationChanged){this.weatherData=null;this.weatherSlide=null}
-    const systemChanged=settings.showSystemStats!==this.settings.showSystemStats;
     this.settings=settings; this.showingDateTime=false; this.dateTimeUntil=0; this.imagesSinceDateTime=0; this.showingWeather=false; this.weatherUntil=0; this.imagesSinceWeather=0; this.showingSystem=false; this.systemUntil=0; this.imagesSinceSystem=0; this.informationView=this.informationViews()[0]||"dateTime"; this.presentationQueue=[];
     if (folderChanged) { this.index=0; this.stopWatcher(); this.slideCache.clear(); }
     if(weatherUnitsChanged&&this.weatherData)this.weatherSlide=await renderWeatherSlide(this.weatherData,settings.weatherUnits);
-    await this.refreshWeather(weatherChanged||(weatherUnitsChanged&&!this.weatherData)); await this.refreshSystem(systemChanged); await this.rescan(renderNow); this.nextSlideAt=this.now()+(settings.showImages?settings.intervalSeconds*1000:this.informationDurationMs()); this.imagesSinceDateTime=1; this.imagesSinceWeather=1; this.imagesSinceSystem=1; this.ensureRuntime(); this.broadcastStatus();
+    await this.refreshWeather(weatherChanged||(weatherUnitsChanged&&!this.weatherData));if(!settings.showSystemStats)await this.refreshSystem(false);else if(!settings.showImages&&this.informationView==="system")await this.refreshSystem(true);else{this.systemStatus={level:"warning",message:"System resources update when their panel is shown."};this.nextSystemRefreshAt=0}await this.rescan(renderNow); this.nextSlideAt=this.now()+(settings.showImages?settings.intervalSeconds*1000:this.informationDurationMs()); this.imagesSinceDateTime=1; this.imagesSinceWeather=1; this.imagesSinceSystem=1; this.ensureRuntime(); this.broadcastStatus();
   }
   weatherEnabled() { return this.settings.showWeather; }
   async refreshWeather(force=false) {
@@ -236,28 +235,27 @@ export class SlideshowService {
   async tick() {
     const time=this.now();
     if(this.weatherEnabled()&&time>=this.nextWeatherRefreshAt)await this.refreshWeather(false);
-    if(this.settings.showSystemStats&&time>=this.nextSystemRefreshAt)await this.refreshSystem(false);
-    if(!this.settings.showImages){const views=this.informationViews();if(views.length>1&&time>=this.nextSlideAt){const index=views.indexOf(this.informationView);this.informationView=views[(index+1)%views.length];this.nextSlideAt=time+this.informationDurationMs();this.renderAll(false);return}if(this.informationView==="dateTime")this.renderAll(false);return;}
+    if(!this.settings.showImages){const views=this.informationViews();if(views.length>1&&time>=this.nextSlideAt){const index=views.indexOf(this.informationView);this.informationView=views[(index+1)%views.length];if(this.informationView==="system")await this.refreshSystem(true);this.nextSlideAt=this.now()+this.informationDurationMs();this.renderAll(false);return}if(this.informationView==="system"&&time>=this.nextSystemRefreshAt)await this.refreshSystem(false);if(this.informationView==="dateTime")this.renderAll(false);return;}
     if(time>=this.nextRescanAt)await this.rescan(false);
     if(this.showingWeather){
       if(time<this.weatherUntil)return;
-      this.showingWeather=false;this.weatherUntil=0;this.imagesSinceWeather=0;this.finishPresentation(time);return;
+      this.showingWeather=false;this.weatherUntil=0;this.imagesSinceWeather=0;const pending=this.finishPresentation(time);if(pending)await pending;return;
     }
     if(this.showingDateTime){
       if(time<this.dateTimeUntil){this.renderAll(false);return;}
-      this.showingDateTime=false;this.dateTimeUntil=0;this.imagesSinceDateTime=0;this.finishPresentation(time);return;
+      this.showingDateTime=false;this.dateTimeUntil=0;this.imagesSinceDateTime=0;const pending=this.finishPresentation(time);if(pending)await pending;return;
     }
     if(this.showingSystem){
-      if(time<this.systemUntil)return;
-      this.showingSystem=false;this.systemUntil=0;this.imagesSinceSystem=0;this.finishPresentation(time);return;
+      if(time<this.systemUntil){if(time>=this.nextSystemRefreshAt)await this.refreshSystem(false);return;}
+      this.showingSystem=false;this.systemUntil=0;this.imagesSinceSystem=0;const pending=this.finishPresentation(time);if(pending)await pending;return;
     }
     if(time<this.nextSlideAt)return;
-    this.presentationQueue=[this.settings.showDateTime&&this.imagesSinceDateTime>=this.settings.dateTimeEverySlides?"dateTime":null,this.settings.showWeather&&this.weatherData&&this.imagesSinceWeather>=this.settings.weatherEverySlides?"weather":null,this.settings.showSystemStats&&this.systemSlide&&this.imagesSinceSystem>=this.settings.systemEverySlides?"system":null].filter(Boolean);
-    if(this.startNextPresentation(time))return;
+    this.presentationQueue=[this.settings.showDateTime&&this.imagesSinceDateTime>=this.settings.dateTimeEverySlides?"dateTime":null,this.settings.showWeather&&this.weatherData&&this.imagesSinceWeather>=this.settings.weatherEverySlides?"weather":null,this.settings.showSystemStats&&this.imagesSinceSystem>=this.settings.systemEverySlides?"system":null].filter(Boolean);
+    if(this.presentationQueue[0]==="system")await this.refreshSystem(true);if(this.startNextPresentation(this.now()))return;
     this.nextSlideAt=time+this.settings.intervalSeconds*1000;this.advanceImage();
   }
   startNextPresentation(time) { const type=this.presentationQueue.shift();if(!type)return false;if(type==="dateTime"){this.showingDateTime=true;this.dateTimeUntil=time+this.settings.dateTimeDurationSeconds*1000;this.nextSlideAt=this.dateTimeUntil}else if(type==="weather"){this.showingWeather=true;this.weatherUntil=time+this.settings.weatherDurationSeconds*1000;this.nextSlideAt=this.weatherUntil}else{this.showingSystem=true;this.systemUntil=time+this.settings.systemDurationSeconds*1000;this.nextSlideAt=this.systemUntil}this.renderAll(false);return true; }
-  finishPresentation(time) { if(this.startNextPresentation(time))return;this.advanceImage();this.nextSlideAt=time+this.settings.intervalSeconds*1000;this.renderAll(false); }
+  finishPresentation(time) { if(this.presentationQueue[0]==="system")return this.refreshSystem(true).then(()=>{this.startNextPresentation(this.now())});if(this.startNextPresentation(time))return null;this.advanceImage();this.nextSlideAt=time+this.settings.intervalSeconds*1000;this.renderAll(false);return null; }
   informationViews() { return [this.settings.showDateTime?"dateTime":null,this.settings.showWeather?"weather":null,this.settings.showSystemStats?"system":null].filter(Boolean); }
   informationDurationMs() { return (this.informationView==="weather"?this.settings.weatherDurationSeconds:this.informationView==="system"?this.settings.systemDurationSeconds:this.settings.dateTimeDurationSeconds)*1000; }
   advanceImage() { const last=this.slides.length-1;if(this.index>=last&&!this.settings.loop)return false;this.index=this.index>=last?0:this.index+1;this.imagesSinceDateTime++;this.imagesSinceWeather++;this.imagesSinceSystem++;this.renderAll(false);return true; }

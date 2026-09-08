@@ -78,3 +78,7 @@ Version 0.7.2 introduced Store artwork ratio validation but referenced obsolete 
 ## Updating 0.7.2 to 0.7.3
 
 Version 0.7.3 moves the authoritative Community Store artwork to `resources/store`, uses the intended cover and banner, and enforces their documented 2:1 and 3:2 ratios. Runtime behavior and persisted settings remain unchanged.
+
+## Updating 0.7.3 to 0.7.4
+
+Version 0.7.4 samples CPU, GPU, and RAM only while the system-resource panel is visible. It takes one immediate sample when the panel appears, then refreshes every two seconds until the panel leaves the display. Runtime behavior and persisted settings otherwise remain unchanged.

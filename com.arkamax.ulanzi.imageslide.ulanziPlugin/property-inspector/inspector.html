@@ -24,7 +24,7 @@
   <h3>System resources</h3>
   <div class="row check"><input id="show-system" type="checkbox"><label for="show-system">Include CPU, GPU, and RAM</label></div>
   <div id="system-options" class="row inline" hidden><div id="system-frequency"><label for="system-every">Every (slides)</label><input id="system-every" type="number" min="1" max="10000" step="1" value="5"></div><div><label for="system-duration">Duration (seconds)</label><input id="system-duration" type="number" min="1" max="3600" step="1" value="5"></div></div>
-  <div class="row hint">Updates every 2 seconds. GPU shows N/A when the operating system or driver does not expose utilization.</div>
+  <div class="row hint">Updates every 2 seconds only while this panel is visible. GPU shows N/A when unavailable.</div>
   <div class="row"><div id="system-status" class="status warning">System resources are disabled.</div></div>
   <script src="inspector.js"></script>
 </body>

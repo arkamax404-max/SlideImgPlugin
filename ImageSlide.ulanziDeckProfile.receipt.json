@@ -1,6 +1,6 @@
 {
   "schema": "com.arkamax.ulanzi.imageslide.profile-artifact-receipt/v1",
-  "output_sha256": "24e196eac343d010d9e8255201917dd0140ebfb0acb1692f1df7034873842993",
+  "output_sha256": "c12cacec53b5b52809c12333f3bf55b3cb0b2f55ef253348c8d6530aa9107f16",
   "package_id": "fef9a688-f8d2-4bc0-a60d-302ff7ac3041",
   "profile_id": "7e750485-c66b-41f2-97e8-62693c1b2783",
   "profile_name": "Image Slideshow",

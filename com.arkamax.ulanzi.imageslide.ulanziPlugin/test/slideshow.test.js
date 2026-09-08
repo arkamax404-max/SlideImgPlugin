@@ -24,7 +24,7 @@ function fakeRuntime() {
 
 test("manifest and Property Inspector use the Studio 3.2.11 contract",()=>{
   const manifest=JSON.parse(readFileSync(join(root,"manifest.json"),"utf8"));
-assert.equal(PLUGIN_UUID.split(".").length,4);assert.equal(manifest.UUID,PLUGIN_UUID);assert.equal(manifest.Version,"0.7.3");assert.equal(manifest.Actions[0].UUID,ACTION_UUID);assert.equal(manifest.Author,"Santiago P\u00e9rez");
+assert.equal(PLUGIN_UUID.split(".").length,4);assert.equal(manifest.UUID,PLUGIN_UUID);assert.equal(manifest.Version,"0.7.4");assert.equal(manifest.Actions[0].UUID,ACTION_UUID);assert.equal(manifest.Author,"Santiago P\u00e9rez");
   assert.match(manifest.Description,/automatically resizes/i);assert.match(manifest.Overview,/458 x 196/);assert.match(manifest.Overview,/without changing the originals/i);
   const icon=readFileSync(join(root,"resources","icon.svg"),"utf8");assert.match(icon,/linearGradient id="background"/);assert.equal((icon.match(/stroke="#dcecff"/g)||[]).length,2);assert.match(icon,/id="mountain"/);
   assert.equal(manifest.Actions[0].PropertyInspectorPath,"property-inspector/inspector.html");assert.equal(manifest.Software.MinVersion,"3.0.11");
@@ -109,14 +109,14 @@ test("scheduler inserts weather, refreshes safely, and keeps stale forecast on f
 });
 
 test("simultaneously due panels run date, weather, and system sequentially before images resume",async()=>{
-  const r=fakeRuntime(),config=await loadConfiguration(root);let now=1000;
-  const systemMonitor={sample:async()=>({cpu:20,gpu:30,ram:40,ramUsed:4*1024**3,ramTotal:10*1024**3,sampledAt:now})},service=new SlideshowService({client:r.client,configuration:config,timerApi:r.timers,now:()=>now,fetchImpl:async()=>({ok:true,text:async()=>JSON.stringify(weatherResponse())}),systemMonitor,logger(){}});service.bind();const context=`${ACTION_UUID}___3_2___sequential`;r.handlers.add({uuid:ACTION_UUID,context});
+  const r=fakeRuntime(),config=await loadConfiguration(root);let now=1000,samples=0;
+  const systemMonitor={sample:async()=>{samples++;return{cpu:20,gpu:30,ram:40,ramUsed:4*1024**3,ramTotal:10*1024**3,sampledAt:now}}},service=new SlideshowService({client:r.client,configuration:config,timerApi:r.timers,now:()=>now,fetchImpl:async()=>({ok:true,text:async()=>JSON.stringify(weatherResponse())}),systemMonitor,logger(){}});service.bind();const context=`${ACTION_UUID}___3_2___sequential`;r.handlers.add({uuid:ACTION_UUID,context});
   await r.handlers.send({uuid:ACTION_UUID,context,payload:{type:"updateSettings",settings:{...service.settings,intervalSeconds:5,showDateTime:true,dateTimeEverySlides:3,dateTimeDurationSeconds:2,showWeather:true,weatherEverySlides:3,weatherDurationSeconds:3,weatherApiKey:"key",weatherLocation:"Madrid",showSystemStats:true,systemEverySlides:3,systemDurationSeconds:2}}});
-  now=6000;await service.tick();assert.equal(service.index,1);now=11000;await service.tick();assert.equal(service.index,0);
-  now=16000;await service.tick();assert.equal(service.showingDateTime,true);assert.deepEqual(service.presentationQueue,["weather","system"]);assert.equal(service.index,0);
-  now=18000;await service.tick();assert.equal(service.showingDateTime,false);assert.equal(service.showingWeather,true);assert.deepEqual(service.presentationQueue,["system"]);assert.equal(service.index,0);
-  now=21000;await service.tick();assert.equal(service.showingWeather,false);assert.equal(service.showingSystem,true);assert.deepEqual(service.presentationQueue,[]);assert.equal(service.index,0);
-  now=23000;await service.tick();assert.equal(service.showingSystem,false);assert.equal(service.index,1);assert.equal(service.imagesSinceDateTime,1);assert.equal(service.imagesSinceWeather,1);assert.equal(service.imagesSinceSystem,1);
+  assert.equal(samples,0);now=6000;await service.tick();assert.equal(service.index,1);now=11000;await service.tick();assert.equal(service.index,0);assert.equal(samples,0);
+  now=16000;await service.tick();assert.equal(service.showingDateTime,true);assert.deepEqual(service.presentationQueue,["weather","system"]);assert.equal(service.index,0);assert.equal(samples,0);
+  now=18000;await service.tick();assert.equal(service.showingDateTime,false);assert.equal(service.showingWeather,true);assert.deepEqual(service.presentationQueue,["system"]);assert.equal(service.index,0);assert.equal(samples,0);
+  now=21000;await service.tick();assert.equal(service.showingWeather,false);assert.equal(service.showingSystem,true);assert.deepEqual(service.presentationQueue,[]);assert.equal(service.index,0);assert.equal(samples,1);
+  now=23000;await service.tick();assert.equal(service.showingSystem,false);assert.equal(service.index,1);assert.equal(samples,1);assert.equal(service.imagesSinceDateTime,1);assert.equal(service.imagesSinceWeather,1);assert.equal(service.imagesSinceSystem,1);
 });
 
 test("disabling images with weather enabled avoids image access",async()=>{
@@ -127,10 +127,10 @@ test("disabling images with weather enabled avoids image access",async()=>{
 });
 
 test("date/time, weather, and system resources rotate by duration when images are disabled",async()=>{
-  const r=fakeRuntime(),config=await loadConfiguration(root);let now=1000;
-  const systemMonitor={sample:async()=>({cpu:20,gpu:30,ram:40,ramUsed:4*1024**3,ramTotal:10*1024**3,sampledAt:now})},service=new SlideshowService({client:r.client,configuration:config,timerApi:r.timers,now:()=>now,fetchImpl:async()=>({ok:true,text:async()=>JSON.stringify(weatherResponse())}),systemMonitor,logger(){}});service.bind();const context=`${ACTION_UUID}___3_2___information`;r.handlers.add({uuid:ACTION_UUID,context});
+  const r=fakeRuntime(),config=await loadConfiguration(root);let now=1000,samples=0;
+  const systemMonitor={sample:async()=>{samples++;return{cpu:20,gpu:30,ram:40,ramUsed:4*1024**3,ramTotal:10*1024**3,sampledAt:now}}},service=new SlideshowService({client:r.client,configuration:config,timerApi:r.timers,now:()=>now,fetchImpl:async()=>({ok:true,text:async()=>JSON.stringify(weatherResponse())}),systemMonitor,logger(){}});service.bind();const context=`${ACTION_UUID}___3_2___information`;r.handlers.add({uuid:ACTION_UUID,context});
   await r.handlers.send({uuid:ACTION_UUID,context,payload:{type:"updateSettings",settings:{...service.settings,showImages:false,showDateTime:true,dateTimeDurationSeconds:3,showWeather:true,weatherDurationSeconds:4,weatherApiKey:"key",weatherLocation:"Madrid",showSystemStats:true,systemDurationSeconds:2}}});assert.equal(service.informationView,"dateTime");assert.deepEqual(service.informationViews(),["dateTime","weather","system"]);assert.equal(service.nextSlideAt,4000);assert.match(r.sent.at(-1).data,/^data:image\/svg\+xml;base64,/);
-  now=4000;await service.tick();assert.equal(service.informationView,"weather");assert.match(r.sent.at(-1).data,/^data:image\/png;base64,/);now=8000;await service.tick();assert.equal(service.informationView,"system");assert.match(r.sent.at(-1).data,/^data:image\/png;base64,/);now=10000;await service.tick();assert.equal(service.informationView,"dateTime");assert.match(r.sent.at(-1).data,/^data:image\/svg\+xml;base64,/);
+  assert.equal(samples,0);now=4000;await service.tick();assert.equal(service.informationView,"weather");assert.match(r.sent.at(-1).data,/^data:image\/png;base64,/);assert.equal(samples,0);now=8000;await service.tick();assert.equal(service.informationView,"system");assert.match(r.sent.at(-1).data,/^data:image\/png;base64,/);assert.equal(samples,1);now=10000;await service.tick();assert.equal(service.informationView,"dateTime");assert.match(r.sent.at(-1).data,/^data:image\/svg\+xml;base64,/);assert.equal(samples,1);
 });
 
 test("changing weather location discards an in-flight response for the previous city",async()=>{
