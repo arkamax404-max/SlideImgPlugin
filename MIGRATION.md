@@ -82,3 +82,7 @@ Version 0.7.3 moves the authoritative Community Store artwork to `resources/stor
 ## Updating 0.7.3 to 0.7.4
 
 Version 0.7.4 samples CPU, GPU, and RAM only while the system-resource panel is visible. It takes one immediate sample when the panel appears, then refreshes every two seconds until the panel leaves the display. Runtime behavior and persisted settings otherwise remain unchanged.
+
+## Updating 0.7.4 to 0.7.5
+
+Version 0.7.5 promotes the visually approved crop-safe `1200 x 630` JPEG to the authoritative Community Store cover. Runtime behavior and persisted settings remain unchanged.
