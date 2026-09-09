@@ -83,7 +83,7 @@ Enable **Include CPU, GPU, and RAM** to add a three-card resource screen with th
 
 CPU and RAM use portable Node system APIs. GPU utilization is best-effort: Windows uses the built-in GPU performance counters, while macOS checks `IOAccelerator` and `AGXAccelerator` metrics without elevated permissions. The GPU card shows `N/A` when the operating system or graphics driver does not expose utilization; CPU, RAM, and the rest of the plugin continue normally.
 
-Every generated large-display assignment persists `ActionParam.SmallViewMode: 2`. This suppresses the clock on the validated Windows path. **Known macOS limitation:** Studio can still render its clock overlay above the slideshow.
+Every generated large-display assignment persists `ActionParam.SmallViewMode: 2`. On the validated Windows path, the first slideshow content update removes the previous built-in clock. **Known macOS limitation:** Studio can retain that clock above the slideshow until the page is reloaded. If it remains visible after Setup, switch to another D200 page and return to the slideshow page. No Studio restart or second Setup operation is required.
 
 ## Toggle the large display
 
@@ -92,7 +92,7 @@ The **Setup Large Display** Property Inspector offers **Install**, **Repair**, a
 1. Put **Setup Large Display** on an unused normal key; do not put it on the large display.
 2. Choose the operation and press the key while Studio is open. The plugin starts a detached assistant and passes the validated normal-key coordinate and Setup action ID as separate process arguments. The helper performs read-only discovery and creates a request whose JSON is bound to a SHA-256 sidecar; only an opaque SHA-256 of the action ID is persisted.
 3. Wait for **CLOSE STUDIO**, then close Studio manually.
-4. The detached assistant revalidates the requested operation and exact store/group/current-page binding, creates a new safety backup, atomically patches or restores, validates readback, and writes a receipt. Windows restarts the pinned executable. On macOS, wait for completion and reopen Studio manually.
+4. The detached assistant revalidates the requested operation and exact store/group/current-page binding, creates a new safety backup, atomically patches or restores, validates readback, and writes a receipt. Windows restarts the pinned executable. On macOS, wait for completion and reopen Studio manually. If the built-in clock remains above the slideshow, switch to another D200 page and return once to refresh the page.
 
 `helper\Apply-ImageSlideSetup.cmd` remains available only as a manual recovery path for a valid prepared request.
 
@@ -132,7 +132,7 @@ The state machine has only three outcomes: built-in small-window → patch, Imag
 - [ ] Leaving the active page stops slideshow scheduling and watching.
 - [ ] Setup asks for Studio to be closed and never stops it itself.
 - [ ] A second complete Setup cycle restores the exact pre-patch large-display behavior.
-- [ ] On macOS, Studio is reopened manually and the clock-overlay limitation is accepted.
+- [ ] On macOS, Studio is reopened manually; if the previous built-in clock remains visible, switching pages once removes it.
 
 ## Recovery
 
