@@ -204,3 +204,23 @@ table separator rows in `README.md`.
 - Release artifacts, the profile receipt and `SHA256SUMS.txt` were rebuilt from the
   compact source after the final README and cover changes.
 
+## Released as 0.8.0
+
+- Version bumped from 0.7.5 to 0.8.0 in `manifest.json`, `package.json`,
+  `package-lock.json`, `plugin/setup.js`, both Windows/macOS helpers,
+  `Install-ImageSlidePlugin.ps1`, `tools/profile_tool.py`, `README.md`,
+  `TEST-REPORT.txt` and the assertions that pinned 0.7.5, plus a new
+  "Updating 0.7.5 to 0.8.0" section in `MIGRATION.md` and `set-version` on the
+  delivered profile artifact.
+- One commit `b6ce5cb` on top of `2c8993e`, pushed to `origin/main`.
+- Annotated tag `v0.8.0` -> `b6ce5cb`.
+- The first push was rejected because `origin/main` had advanced with the macOS clock
+  documentation commit. Rebased cleanly, regenerated artifacts and `SHA256SUMS.txt`
+  from the merged README, amended, then pushed fast-forward. The tag had to be
+  recreated because the first one pointed at the pre-rebase orphan.
+- Verified at the tagged commit: `node --test` 59/59, `pytest` 30 passed / 2 skipped.
+
+The remaining pi-lens findings on `helper/Invoke-ImageSlideSetup.mjs` and
+`tools/profile_tool.py` are pre-existing style and type notices, not regressions: the
+only change made to each file was a single version literal, and the flagged lines are
+byte-identical to HEAD.
