@@ -1,0 +1,25 @@
+{
+  "Name": "Image Slideshow",
+  "Description": "自动适配本地图片，并为 Ulanzi D200 添加时钟、天气或系统资源页面。",
+  "Detail": "Image Slideshow 可将 Ulanzi D200 中央屏幕变为本地图片轮播、系统本地化时钟、可选 WeatherAPI 天气预报以及 CPU/GPU/RAM 监控面板。\n\n核心功能：\n1. 将 PNG、JPG、JPEG 和 SVG 图片居中裁切为 D200 的 458 x 196 显示尺寸，且不会修改原始文件。\n2. 支持顺序或随机轮播，并自动检测所选文件夹的图片变化。\n3. 可独立启用日期时间、天气预报和系统资源页面，并分别设置显示时长。\n4. 图片、时钟和系统资源功能可离线使用；天气功能需要用户自己的 WeatherAPI Key。\n5. 内置 Setup Large Display，用于引导安装、修复、恢复、备份、校验和回滚。\n\n兼容性：适用于 Windows x64 与 macOS x64/arm64 上的 Ulanzi D200，要求 Ulanzi Studio 3.0.11 或更高版本。macOS 用户在设置完成后可能需要手动重新打开 Ulanzi Studio。GPU 使用率为尽力检测，系统或驱动不提供数据时会显示 N/A。",
+  "Actions": [
+    {
+      "Name": "Image Slideshow",
+      "Tooltip": "轮播自动适配的本地图片，并可加入时钟、WeatherAPI 天气和 CPU/GPU/RAM 面板。"
+    },
+    {
+      "Name": "Setup Large Display",
+      "Tooltip": "为 D200 大屏幕提供安装、修复或恢复向导。"
+    }
+  ],
+  "Localization": {
+    "Save": "保存",
+    "Browse": "浏览",
+    "Image Slideshow": "图片轮播",
+    "Setup Large Display": "设置大屏幕",
+    "Weather API Key": "天气 API Key",
+    "Image folder": "图片文件夹",
+    "Duration": "时长",
+    "Order": "顺序"
+  }
+}

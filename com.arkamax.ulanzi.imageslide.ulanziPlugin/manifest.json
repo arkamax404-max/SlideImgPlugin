@@ -1,13 +1,13 @@
 {
   "UUID": "com.arkamax.ulanzi.imageslide",
   "Name": "Image Slideshow",
-  "Description": "Automatically resizes images and adds clock, weather, or system-resource screens for the Ulanzi D200.",
-  "Overview": "Center-crop local images to 458 x 196 without changing the originals; add clock, weather, or CPU/GPU/RAM.",
-  "Author": "Santiago P\u00e9rez",
-  "Version": "0.7.5",
-  "Icon": "resources/icon.svg",
+  "Description": "Automatically resizes local images and adds clock, weather, or system-resource screens for the Ulanzi D200.",
+  "Overview": "Center-crop local images to 458 x 196 without changing the originals; rotate clock, weather, CPU/GPU/RAM screens.",
+  "Author": "Santiago Pérez",
+  "Version": "0.8.0",
+  "Icon": "resources/icon.png",
   "Category": "Arkamax",
-  "CategoryIcon": "resources/category.svg",
+  "CategoryIcon": "resources/category.png",
   "CodePath": "plugin/app.js",
   "Type": "JavaScript",
   "PrivateAPI": false,
@@ -15,8 +15,8 @@
   "Actions": [
     {
       "Name": "Image Slideshow",
-      "Tooltip": "Rotate auto-fitted images with optional clock, WeatherAPI forecast, and CPU/GPU/RAM panels.",
-      "Icon": "resources/action.svg",
+      "Tooltip": "Rotate auto-fitted local images with optional clock, WeatherAPI forecast, and CPU/GPU/RAM panels.",
+      "Icon": "resources/action-icon.png",
       "UUID": "com.arkamax.ulanzi.imageslide.slideshow",
       "PropertyInspectorPath": "property-inspector/inspector.html",
       "States": [
@@ -27,20 +27,33 @@
       ],
       "SupportedInMultiActions": false,
       "DisableAutomaticStates": true,
-      "Controllers": ["Keypad"],
-      "Devices": ["D200"]
+      "Controllers": [
+        "Keypad"
+      ],
+      "Devices": [
+        "D200"
+      ]
     },
     {
       "Name": "Setup Large Display",
       "Tooltip": "Guided install, repair, or restore for the D200 large display.",
-      "Icon": "resources/setup.svg",
+      "Icon": "resources/setup.png",
       "UUID": "com.arkamax.ulanzi.imageslide.setup",
       "PropertyInspectorPath": "property-inspector/setup.html",
-      "States": [{"Name":"Setup Large Display","Image":"resources/setup.svg"}],
+      "States": [
+        {
+          "Name": "Setup Large Display",
+          "Image": "resources/setup.png"
+        }
+      ],
       "SupportedInMultiActions": false,
       "DisableAutomaticStates": true,
-      "Controllers": ["Keypad"],
-      "Devices": ["D200"]
+      "Controllers": [
+        "Keypad"
+      ],
+      "Devices": [
+        "D200"
+      ]
     }
   ],
   "OS": [
@@ -55,5 +68,9 @@
   ],
   "Software": {
     "MinVersion": "3.0.11"
-  }
+  },
+  "Detail": "Image Slideshow turns the Ulanzi D200 center display into a rotating local image gallery, localized clock, optional WeatherAPI forecast, and CPU/GPU/RAM monitor.\n\nCore features:\n1. Center-crops PNG, JPG, JPEG, and SVG images to the D200 458 x 196 display without modifying the original files.\n2. Rotates images in order or shuffled mode and watches the selected folder for changes.\n3. Adds optional date/time, weather forecast, and system-resource screens with independent durations.\n4. Works offline for images, clock, and system resources; weather uses the user's own WeatherAPI key.\n5. Includes Setup Large Display for guided install, repair, restore, backup, validation, and rollback.\n\nCompatibility: Ulanzi D200 on Windows x64 and macOS x64/arm64 with Ulanzi Studio 3.0.11 or later. macOS users may need to reopen Ulanzi Studio manually after setup. GPU utilization is best-effort and may show N/A when the operating system or driver does not expose it.",
+  "Banner": [
+    "assets/banners/banner-1.png"
+  ]
 }

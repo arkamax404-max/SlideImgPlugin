@@ -4,3 +4,5 @@
 .pytest_cache/
 .codegraph/
 .build-package/
+# Local Pi runtime state
+.atl/

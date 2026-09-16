@@ -5,7 +5,7 @@ import { basename, join } from "node:path";
 import { homedir } from "node:os";
 
 export const SETUP_UUID="com.arkamax.ulanzi.imageslide.setup";
-export const PLUGIN_VERSION="0.7.5";
+export const PLUGIN_VERSION="0.8.0";
 const REQUEST_SCHEMA="com.arkamax.ulanzi.imageslide.setup-request/v5";
 const FAILURE_CODES=new Set([
   "PROFILE_NOT_FOUND","PROFILE_AMBIGUOUS","SETUP_INSTANCE_NOT_FOUND","PAGE_INVALID","SLOT_UNRELATED",
@@ -15,10 +15,11 @@ const FAILURE_CODES=new Set([
   const PHASES=new Set(["INITIALIZING","COMPATIBILITY","COMPAT_PLUGIN_ROOT","COMPAT_MANIFEST_READ","COMPAT_EXE_PATH","COMPAT_VERSION_READ","COMPAT_HASH_READ","COMPAT_ENV_PATHS","SETTINGS_READ","SETTINGS_SCHEMA","V2_ENUMERATION","V1_FALLBACK","DEVICE_PROFILE_MATCH","PAGE_READ","TARGET_RESOLUTION","RESTORE_RESOLUTION","SLOT_VALIDATION","REQUEST_WRITE","APPLY_PRECHECK","BACKUP","PATCH_WRITE","RESTORE_WRITE","READBACK","RECEIPT","RELAUNCH","MANUAL_REOPEN"]);
 
 function icon(label,color) {
-  const svg=`<svg xmlns="http://www.w3.org/2000/svg" width="196" height="196"><rect width="196" height="196" rx="20" fill="${color}"/><text x="98" y="92" text-anchor="middle" fill="white" font-family="Arial" font-size="20" font-weight="bold">${label}</text><text x="98" y="125" text-anchor="middle" fill="white" font-family="Arial" font-size="15">LARGE DISPLAY</text></svg>`;
+  const svg=`<svg xmlns="http://www.w3.org/2000/svg" width="196" height="196"><rect width="196" height="196" rx="24" fill="${color}"/><rect x="24" y="38" width="148" height="82" rx="12" fill="none" stroke="#FFFFFF" stroke-width="10"/><path d="M70 150h56M98 120v30" fill="none" stroke="#FFFFFF" stroke-width="10" stroke-linecap="round"/><text x="98" y="80" text-anchor="middle" fill="#FFFFFF" font-family="Arial" font-size="18" font-weight="bold">${label}</text><text x="98" y="104" text-anchor="middle" fill="#FFFFFF" font-family="Arial" font-size="15">LARGE DISPLAY</text></svg>`;
   return `data:image/svg+xml;base64,${Buffer.from(svg).toString("base64")}`;
 }
 const ICONS={ready:icon("READY","#315d94"),launching:icon("LAUNCHING","#8a6518"),waiting:icon("CLOSE STUDIO","#98601f"),installed:icon("INSTALLED","#26734d"),restored:icon("RESTORED","#26734d"),failed:icon("FAILED","#963f3f")};
+const STATUS_REASONS={READY:"Setup is ready.",PREPARING:"Starting the Setup Assistant.",PREPARED:"Waiting for Studio to close.",SUCCESS:"Setup completed.",IDEMPOTENT:"Setup was already applied.",RESTORED:"Original display action restored.",PROFILE_NOT_FOUND:"No matching device profile was found.",PROFILE_AMBIGUOUS:"More than one matching profile was found.",SETUP_INSTANCE_NOT_FOUND:"The Setup key could not be bound to one page.",PAGE_INVALID:"The target page changed or could not be read.",SLOT_UNRELATED:"The large display holds an unrelated action.",SETTINGS_SCHEMA_UNSUPPORTED:"Studio settings could not be read.",REQUEST_WRITE_FAILED:"The Setup request could not be written.",PROFILE_STORE_UNREADABLE:"The profile store could not be read.",MANIFEST_INVALID:"A profile manifest is invalid.",COMPATIBILITY_UNSUPPORTED:"This Studio build is not supported.",HELPER_PROCESS_FAILED:"The Setup Assistant failed.",REPREPARE_REQUIRED:"Press Setup again to prepare a fresh request.",RESTORE_BACKUP_NOT_FOUND:"No verified backup was found.",RESTORE_BACKUP_INVALID:"The verified backup no longer matches."};
 
 function sha256(text){return createHash("sha256").update(String(text),"utf8").digest("hex")}
 export function diagnosticCode(text){
@@ -101,7 +102,7 @@ export class SetupService {
     }catch{return null}
   }
   render(context,state,text=""){try{this.client.setBaseDataIcon(context,ICONS[state]||ICONS.failed,String(text).slice(0,80))}catch{}}
-  notify(context){const operation=this.contexts.get(context)?.operation||"install";try{this.client.sendToPropertyInspector({type:"setupStatus",status:this.last.status,code:this.last.code,phase:this.last.phase,operation},context)}catch{}}
+  notify(context){const operation=this.contexts.get(context)?.operation||"install";try{this.client.sendToPropertyInspector({type:"setupStatus",status:this.last.status,code:this.last.code,phase:this.last.phase,operation,reason:STATUS_REASONS[this.last.code]||"Setup stopped before changing anything."},context)}catch{}}
   setStatus(context,status,code,phase="INITIALIZING"){this.last={status,code,phase};const keyDiagnostic=status==="failed"?`[${code}:${phase}]`:"";this.render(context,status,keyDiagnostic);this.notify(context)}
   refreshHandshake(context,binding,handshakeId){if(!this.loadLastDiagnostic(binding,handshakeId)){}this.render(context,this.last.status,this.last.status==="failed"?`[${this.last.code}:${this.last.phase}]`:"");this.notify(context);return this.persisted?.status||null}
   stopHandshake(context){const active=this.handshakes.get(context);if(active?.timer)this.clearIntervalFn(active.timer);this.handshakes.delete(context)}

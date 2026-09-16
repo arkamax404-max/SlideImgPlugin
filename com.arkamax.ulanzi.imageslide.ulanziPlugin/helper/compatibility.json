@@ -1,22 +1,44 @@
 {
   "schema": "com.arkamax.ulanzi.imageslide.compatibility/v1",
   "studio": {
-    "path": "C:\\Program Files (x86)\\UlanziDeck\\UlanziDeck.exe",
-    "fileVersion": "3.2.11.0",
-    "sha256": "eee2458802e36170e8b09fe58d5d8f9b616813ee362fc83ac99884b3615509c4",
+    "paths": [
+      "C:\\Program Files (x86)\\UlanziDeck\\UlanziDeck.exe",
+      "C:\\Program Files (x86)\\Ulanzi Studio\\UlanziDeck.exe",
+      "C:\\Program Files\\UlanziDeck\\UlanziDeck.exe",
+      "C:\\Program Files\\Ulanzi Studio\\UlanziDeck.exe"
+    ],
+    "builds": [
+      {
+        "fileVersion": "3.2.11.0",
+        "sha256": "eee2458802e36170e8b09fe58d5d8f9b616813ee362fc83ac99884b3615509c4"
+      },
+      {
+        "fileVersion": "3.3.9.0",
+        "sha256": "8c5580461eb44326d1fd05e21de3b435772ab0a5efff301ee355d304cb760f1d"
+      }
+    ],
     "macos": {
-      "bundleIdentifiers": ["ulanzi.UlanziStudio"],
-      "processNames": ["UlanziDeck"],
+      "bundleIdentifiers": [
+        "ulanzi.UlanziStudio"
+      ],
+      "processNames": [
+        "UlanziDeck"
+      ],
       "dataRoots": [
         "Library/Application Support/Ulanzi/UlanziDeck"
       ],
-      "profileStores": ["ProfilesV2"],
+      "profileStores": [
+        "ProfilesV2"
+      ],
       "relaunch": "manual"
     }
   },
   "state": {
     "settingSource": "Config\\setting_source.json",
-    "profileStores": ["ProfilesV2", "ProfilesV1"],
+    "profileStores": [
+      "ProfilesV2",
+      "ProfilesV1"
+    ],
     "devicesField": "Devices",
     "currentProfileField": "CurrentProfile",
     "currentDeviceField": "CurrentDevice"

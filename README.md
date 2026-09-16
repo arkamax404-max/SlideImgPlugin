@@ -4,7 +4,7 @@ Created by **Santiago Pérez**.
 
 ImageSlidePlugin keeps Ulanzi Studio and its plugins intact. It installs **Image Slideshow**, imports an independently identified profile clone, and lets you combine local images, a localized clock, an optional WeatherAPI forecast, and system resource usage from the Property Inspector.
 
-Version **0.7.5** is packaged from one source tree as one universal `*.ulanziPlugin.zip` for Windows x64, macOS x64, and macOS arm64. It automatically center-crops images of other sizes to 458 x 196 in memory while leaving the original files untouched.
+Version **0.8.0** is packaged from one source tree as one universal `*.ulanziPlugin.zip` for Windows x64, macOS x64, and macOS arm64. It automatically center-crops images of other sizes to 458 x 196 in memory while leaving the original files untouched.
 
 An existing successful **0.1.9** Setup patch does not need to be patched again. Select **Restore original** before pressing Setup; 0.2.0 accepts that version's verified `apply-or-repair` receipt and backup, binds them into a new restore request, and restores the exact pre-0.1.9 bytes after Studio closes. Missing, ambiguous, changed, or tampered lineage fails closed.
 
@@ -15,9 +15,11 @@ An existing successful **0.1.9** Setup patch does not need to be patched again. 
 1. Keep your original `Arkamax` export. It remains the rollback authority.
 2. Close Ulanzi Studio.
 3. On Windows, run preflight:
+
    ```powershell
    powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Install-ImageSlidePlugin.ps1 -WhatIf
    ```
+
 4. If Windows preflight prints `PASS`, run the same command without `-WhatIf`. On macOS, install the universal plugin package through Studio; the PowerShell installer is Windows-only.
 5. Import `ImageSlide.ulanziDeckProfile` when prompted, or import it manually as **Image Slideshow**.
 6. Select the slideshow action, choose a folder in its Property Inspector, and verify the physical D200.
@@ -27,7 +29,7 @@ An existing successful **0.1.9** Setup patch does not need to be patched again. 
 The Property Inspector separates image, date/time, weather, and system-resource content. **Refresh folder** sits beside **Select folder**, and **Show image slideshow** controls whether images participate in the rotation. Settings are plugin-wide because the cloned profile has one large-display slideshow instance.
 
 | Rule | Behavior |
-|---|---|
+| --- | --- |
 | Size | Exact 458 × 196 files pass through; other sizes up to 40 MP use centered cover resizing |
 | Types | PNG, JPG/JPEG, SVG |
 | File limit | 8 MiB each |
@@ -45,7 +47,7 @@ The plugin never writes to the selected folder and never logs its full path.
 The date/time screen updates once per second with a large clock and a bold weekday/date line.
 
 | Mode or setting | Behavior |
-|---|---|
+| --- | --- |
 | **Include date and time** | Adds the clock to the enabled content rotation |
 | **Every (slides)** | With images enabled, number of images shown before inserting the clock |
 | **Duration (seconds)** | How long the clock remains visible before the next enabled content |
@@ -64,7 +66,7 @@ Weather mode displays current conditions plus a three-day forecast using bundled
 4. Choose Celsius/km/h or Fahrenheit/mph and press **Refresh weather**.
 
 | Mode or setting | Behavior |
-|---|---|
+| --- | --- |
 | **Include weather forecast** | Adds weather to the enabled content rotation |
 | **Every (slides)** | With images enabled, number of images shown before inserting weather |
 | **Duration (seconds)** | How long weather remains visible before the next enabled content |
@@ -100,13 +102,15 @@ The Setup key remains assigned after restart. Remove or reuse it manually when y
 
 ### Setup refuses instead of guessing
 
-Windows Setup supports only the locally verified build below:
+Windows Setup resolves the Studio executable from the first candidate path that exists, then accepts only a pinned file version and SHA-256 pair:
 
 | Item | Pinned value |
-|---|---|
-| Executable | `C:\Program Files (x86)\UlanziDeck\UlanziDeck.exe` |
-| File version | `3.2.11.0` |
-| SHA-256 | `eee2458802e36170e8b09fe58d5d8f9b616813ee362fc83ac99884b3615509c4` |
+| --- | --- |
+| Candidate executables | `C:\Program Files (x86)\UlanziDeck\UlanziDeck.exe`, `C:\Program Files (x86)\Ulanzi Studio\UlanziDeck.exe`, `C:\Program Files\UlanziDeck\UlanziDeck.exe`, `C:\Program Files\Ulanzi Studio\UlanziDeck.exe` |
+| Supported build A | version `3.2.11.0`, SHA-256 `eee2458802e36170e8b09fe58d5d8f9b616813ee362fc83ac99884b3615509c4` |
+| Supported build B | version `3.3.9.0`, SHA-256 `8c5580461eb44326d1fd05e21de3b435772ab0a5efff301ee355d304cb760f1d` |
+
+A candidate that exists but matches no pinned build still fails closed with `COMPATIBILITY_UNSUPPORTED`, so an unknown Studio release is refused instead of patched.
 
 Prepare resolves `Config\setting_source.json` using the observed fields `Devices[].CurrentProfile` and `Devices[].CurrentDevice`. Among same-name clones it inspects only each group's `Pages.Current` and requires an exact match for the pressed key, Setup action UUID, and action-ID hash. Windows checks `ProfilesV2` first and retains its validated `ProfilesV1` fallback. macOS supports **ProfilesV2 only**; ProfilesV1 has not been validated there. For restore, Setup accepts exactly one prior successful patch receipt whose target and before/current hashes match; it never chooses the newest or first backup. Apply opens only the receipt and backup pinned by the hashed request, then revalidates every target, receipt, backup, current-manifest, Setup-binding, and operation invariant.
 
@@ -159,6 +163,7 @@ Clock and calendar symbols are from [Lucide](https://github.com/lucide-icons/luc
 - The private `3_2` patch follows the active device/profile/page resolution shape demonstrated by [chilleno/claude-deck](https://github.com/chilleno/claude-deck/blob/main/apply-bigkey.sh), adapted to Windows with strict compatibility, backup, atomic replacement, and rollback gates.
 - The earlier manual Setup/Apply flow was physically validated on 0.1.9 after correcting the PowerShell 5.1 `File.Replace` backup path. The detached assistant retains that verified write path and its automatic wait/apply/relaunch lifecycle is physically validated.
 - The official Ulanzi manifest reference defines the OS platform tokens as `windows` and `mac`, so source and release artifacts use those exact values. Earlier local Studio behavior was proven with an installed disposable ImageSlide copy and a third-party D200 plugin that use `macos`; those installed copies were not changed, and that runtime evidence is not represented as proof of the release-schema token.
+- Windows Setup accepts two pinned Studio builds. `3.2.11.0` carries the earlier physical evidence, and `3.3.9.0` completed a full Setup cycle on a physical D200: Install was selected, Studio was closed when asked, the patch was verified, Studio was relaunched, and the large display then showed Image Slideshow.
 - macOS x64 slideshow import/decode and ProfilesV2 Setup/Restore have physical evidence. Windows x64 installation, profile import, slideshow rotation, and clock suppression were physically rerun for this release. Darwin arm64 native packages are statically verified, not physically executed.
 
 ## Reproducible local package

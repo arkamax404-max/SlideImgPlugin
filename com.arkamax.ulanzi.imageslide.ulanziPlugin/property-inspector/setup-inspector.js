@@ -1,9 +1,9 @@
 (() => {
-  "use strict";
+  
   const uuid="com.arkamax.ulanzi.imageslide.setup",query=new URLSearchParams(location.search),box=document.getElementById("status"),operation=document.getElementById("operation");
   const state={key:query.get("key")||"",actionid:query.get("actionid")||"",socket:null};
   function send(payload){if(state.socket?.readyState===WebSocket.OPEN)state.socket.send(JSON.stringify({cmd:"sendToPlugin",uuid,key:state.key,actionid:state.actionid,payload}));}
-  function paint(payload){const status=String(payload?.status||"unknown").toLowerCase(),code=String(payload?.code||"UNAVAILABLE"),phase=String(payload?.phase||"INITIALIZING");box.className=`status ${status}`;box.textContent=`Status: ${status.toUpperCase()} [${code}:${phase}]`;if(["install","repair","restore"].includes(payload?.operation))operation.value=payload.operation;}
+  function paint(payload){const status=String(payload?.status||"unknown").toLowerCase(),code=String(payload?.code||"UNAVAILABLE"),phase=String(payload?.phase||"INITIALIZING"),reason=typeof payload?.reason==="string"?payload.reason:"";box.textContent={ready:"Ready",launching:"Launching",waiting:"Waiting for Studio to close",installed:"Installed",restored:"Restored"}[status]||"Failed";box.style.color={ready:"#1db954",installed:"#1db954",restored:"#1db954",launching:"#e2a93b",waiting:"#e2a93b"}[status]||"#ff6b6b";document.getElementById("reason").textContent=`${reason?reason+" ":""}[${code}:${phase}]`;if(["install","repair","restore"].includes(payload?.operation))operation.value=payload.operation;}
   function receive(event){let message;try{message=JSON.parse(String(event.data))}catch{return}if(message.key)state.key=message.key;if(message.actionid)state.actionid=message.actionid;if(message.cmd==="sendToPropertyInspector"&&message.payload?.type==="setupStatus")paint(message.payload)}
   document.getElementById("refresh").addEventListener("click",()=>send({type:"requestSetupState"}));
   operation.addEventListener("change",()=>send({type:"updateSetupOperation",operation:operation.value}));

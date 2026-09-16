@@ -12,7 +12,7 @@ Set-StrictMode -Version 2.0
 $ErrorActionPreference='Stop'
 $ActionUuid='com.arkamax.ulanzi.imageslide.slideshow'
 $PluginUuid='com.arkamax.ulanzi.imageslide'
-$PluginVersion='0.7.5'
+$PluginVersion='0.8.0'
 $BuiltIn='com.ulanzi.ulanzideck.smallwindow.window'
 $KnownCodes=@('PROFILE_NOT_FOUND','PROFILE_AMBIGUOUS','SETUP_INSTANCE_NOT_FOUND','PAGE_INVALID','SLOT_UNRELATED','SETTINGS_SCHEMA_UNSUPPORTED','REQUEST_WRITE_FAILED','PROFILE_STORE_UNREADABLE','MANIFEST_INVALID','COMPATIBILITY_UNSUPPORTED','HELPER_PROCESS_FAILED','REPREPARE_REQUIRED','RESTORE_BACKUP_NOT_FOUND','RESTORE_BACKUP_INVALID','RESTORED')
 $KnownPhases=@('INITIALIZING','COMPATIBILITY','COMPAT_PLUGIN_ROOT','COMPAT_MANIFEST_READ','COMPAT_EXE_PATH','COMPAT_VERSION_READ','COMPAT_HASH_READ','COMPAT_ENV_PATHS','SETTINGS_READ','SETTINGS_SCHEMA','V2_ENUMERATION','V1_FALLBACK','DEVICE_PROFILE_MATCH','PAGE_READ','TARGET_RESOLUTION','RESTORE_RESOLUTION','SLOT_VALIDATION','REQUEST_WRITE','APPLY_PRECHECK','BACKUP','PATCH_WRITE','RESTORE_WRITE','READBACK','RECEIPT','RELAUNCH')
@@ -217,11 +217,11 @@ try{
   SetPhase 'COMPAT_MANIFEST_READ';WriteDiagnostic 'started' 'PREPARING' $CurrentPhase
   try{$compat=ReadJson $compatPath 'COMPATIBILITY_UNSUPPORTED' 'SCHEMA';if([string](Required $compat 'schema' 'COMPATIBILITY_UNSUPPORTED' 'SCHEMA')-ne'com.arkamax.ulanzi.imageslide.compatibility/v1'){Fail 'COMPATIBILITY_UNSUPPORTED' 'SCHEMA'};$studioNode=Required $compat 'studio' 'COMPATIBILITY_UNSUPPORTED' 'SCHEMA';$stateNode=Required $compat 'state' 'COMPATIBILITY_UNSUPPORTED' 'SCHEMA'}catch{Fail 'COMPATIBILITY_UNSUPPORTED' 'SCHEMA'}
   SetPhase 'COMPAT_EXE_PATH';WriteDiagnostic 'started' 'PREPARING' $CurrentPhase
-  try{$studio=Full ([string](Required $studioNode 'path' 'COMPATIBILITY_UNSUPPORTED' 'SCHEMA'));if(-not(Test-Path -LiteralPath $studio -PathType Leaf)){Fail 'COMPATIBILITY_UNSUPPORTED' 'IO'}}catch{Fail 'COMPATIBILITY_UNSUPPORTED' 'IO'}
+  try{$studioPaths=@(Required $studioNode 'paths' 'COMPATIBILITY_UNSUPPORTED' 'SCHEMA');if($studioPaths.Count-lt1){Fail 'COMPATIBILITY_UNSUPPORTED' 'SCHEMA'};$studio=$null;foreach($candidate in $studioPaths){$resolved=Full ([string]$candidate);if(Test-Path -LiteralPath $resolved -PathType Leaf){$studio=$resolved;break}};if($null-eq$studio){Fail 'COMPATIBILITY_UNSUPPORTED' 'IO'}}catch{Fail 'COMPATIBILITY_UNSUPPORTED' 'IO'}
   SetPhase 'COMPAT_VERSION_READ';WriteDiagnostic 'started' 'PREPARING' $CurrentPhase
-  try{$actualVersion=[Diagnostics.FileVersionInfo]::GetVersionInfo($studio).FileVersion;$expectedVersion=[string](Required $studioNode 'fileVersion' 'COMPATIBILITY_UNSUPPORTED' 'SCHEMA');if([string]::IsNullOrWhiteSpace($actualVersion)-or$actualVersion-ne$expectedVersion){Fail 'COMPATIBILITY_UNSUPPORTED' 'COMPATIBILITY'}}catch{Fail 'COMPATIBILITY_UNSUPPORTED' 'COMPATIBILITY'}
+  try{$actualVersion=[Diagnostics.FileVersionInfo]::GetVersionInfo($studio).FileVersion;if([string]::IsNullOrWhiteSpace($actualVersion)){Fail 'COMPATIBILITY_UNSUPPORTED' 'COMPATIBILITY'}}catch{Fail 'COMPATIBILITY_UNSUPPORTED' 'COMPATIBILITY'}
   SetPhase 'COMPAT_HASH_READ';WriteDiagnostic 'started' 'PREPARING' $CurrentPhase
-  try{$actualHash=HashFileDirect $studio;$expectedHash=[string](Required $studioNode 'sha256' 'COMPATIBILITY_UNSUPPORTED' 'SCHEMA');if($actualHash-ne$expectedHash){Fail 'COMPATIBILITY_UNSUPPORTED' 'COMPATIBILITY'}}catch{Fail 'COMPATIBILITY_UNSUPPORTED' 'IO'}
+  try{$actualHash=HashFileDirect $studio;$builds=@(Required $studioNode 'builds' 'COMPATIBILITY_UNSUPPORTED' 'SCHEMA');if($builds.Count-lt1){Fail 'COMPATIBILITY_UNSUPPORTED' 'SCHEMA'};$supported=$false;foreach($build in $builds){$expectedVersion=[string](Required $build 'fileVersion' 'COMPATIBILITY_UNSUPPORTED' 'SCHEMA');$expectedHash=[string](Required $build 'sha256' 'COMPATIBILITY_UNSUPPORTED' 'SCHEMA');if($actualVersion-eq$expectedVersion-and$actualHash-eq$expectedHash){$supported=$true;break}};if(-not$supported){Fail 'COMPATIBILITY_UNSUPPORTED' 'COMPATIBILITY'}}catch{Fail 'COMPATIBILITY_UNSUPPORTED' 'IO'}
   SetPhase 'COMPAT_ENV_PATHS';WriteDiagnostic 'started' 'PREPARING' $CurrentPhase
   try{if([string]::IsNullOrWhiteSpace($env:APPDATA)-or[string]::IsNullOrWhiteSpace($env:LOCALAPPDATA)){Fail 'COMPATIBILITY_UNSUPPORTED' 'PROCESS'};$settingRelative=[string](Required $stateNode 'settingSource' 'COMPATIBILITY_UNSUPPORTED' 'SCHEMA');$base=Full (Join-Path $env:APPDATA 'Ulanzi\UlanziDeck');$setting=Under (Join-Path $base $settingRelative) $base;$requestRoot=Under (Join-Path $stateRoot 'requests') $stateRoot;$backupRoot=Under (Join-Path $stateRoot 'backups') $stateRoot}catch{Fail 'COMPATIBILITY_UNSUPPORTED' 'PROCESS'}
   WriteDiagnostic 'started' 'PREPARING' $CurrentPhase

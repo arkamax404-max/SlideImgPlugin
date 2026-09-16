@@ -1,0 +1,25 @@
+{
+  "Name": "Image Slideshow",
+  "Description": "Automatically resizes local images and adds clock, weather, or system-resource screens for the Ulanzi D200.",
+  "Detail": "Image Slideshow turns the Ulanzi D200 center display into a rotating local image gallery, localized clock, optional WeatherAPI forecast, and CPU/GPU/RAM monitor.\n\nCore features:\n1. Center-crops PNG, JPG, JPEG, and SVG images to the D200 458 x 196 display without modifying the original files.\n2. Rotates images in order or shuffled mode and watches the selected folder for changes.\n3. Adds optional date/time, weather forecast, and system-resource screens with independent durations.\n4. Works offline for images, clock, and system resources; weather uses the user's own WeatherAPI key.\n5. Includes Setup Large Display for guided install, repair, restore, backup, validation, and rollback.\n\nCompatibility: Ulanzi D200 on Windows x64 and macOS x64/arm64 with Ulanzi Studio 3.0.11 or later. macOS users may need to reopen Ulanzi Studio manually after setup. GPU utilization is best-effort and may show N/A when the operating system or driver does not expose it.",
+  "Actions": [
+    {
+      "Name": "Image Slideshow",
+      "Tooltip": "Rotate auto-fitted local images with optional clock, WeatherAPI forecast, and CPU/GPU/RAM panels."
+    },
+    {
+      "Name": "Setup Large Display",
+      "Tooltip": "Guided install, repair, or restore for the D200 large display."
+    }
+  ],
+  "Localization": {
+    "Save": "Save",
+    "Browse": "Browse",
+    "Image Slideshow": "Image Slideshow",
+    "Setup Large Display": "Setup Large Display",
+    "Weather API Key": "Weather API Key",
+    "Image folder": "Image folder",
+    "Duration": "Duration",
+    "Order": "Order"
+  }
+}

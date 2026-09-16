@@ -1,4 +1,4 @@
-ImageSlidePlugin 0.7.5 universal release verification
+ImageSlidePlugin 0.8.0 universal release verification
 ================================================================
 
 Scope

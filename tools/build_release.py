@@ -5,14 +5,11 @@ import argparse
 import base64
 import hashlib
 import json
-import os
 import shutil
 import struct
 import subprocess
 import sys
 import tarfile
-import tempfile
-import urllib.request
 import zipfile
 from pathlib import Path, PurePosixPath
 
@@ -60,8 +57,28 @@ RUNTIME_PACKAGES = {
     "@img/sharp-darwin-arm64": "0.35.4",
     "@img/sharp-libvips-darwin-arm64": "1.3.3",
 }
-EXCLUDED_PARTS = {".git", ".codegraph", ".build-package", "node_modules", "test", "tests", "docs", "examples", "install", ".github"}
-SOURCE_EXCLUDED_PARTS = {".git", ".codegraph", ".build-package", "node_modules", "__pycache__", ".pytest_cache"}
+EXCLUDED_PARTS = {
+    ".git",
+    ".codegraph",
+    ".build-package",
+    "node_modules",
+    "test",
+    "tests",
+    "docs",
+    "examples",
+    "install",
+    ".github",
+}
+SOURCE_EXCLUDED_PARTS = {
+    ".git",
+    ".atl",
+    ".codegraph",
+    ".build-package",
+    ".ruff_cache",
+    "node_modules",
+    "__pycache__",
+    ".pytest_cache",
+}
 EXCLUDED_FILES = {".DS_Store", ".npmignore"}
 GENERATED_NAMES = {path.name for path in ARTIFACTS} | {
     "ImageSlide.ulanziDeckProfile",
@@ -74,8 +91,31 @@ def sha256(data):
     return hashlib.sha256(data).hexdigest()
 
 
+def read_json(path):
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise RuntimeError(f"Unable to read JSON: {path}") from exc
+
+
 def lock_packages():
-    return json.loads((PLUGIN / "package-lock.json").read_text(encoding="utf-8"))["packages"]
+    return read_json(PLUGIN / "package-lock.json")["packages"]
+
+
+def fetch_missing_archive(name, version, target, cache):
+    completed = subprocess.run(
+        ["npm", "pack", f"{name}@{version}", "--pack-destination", str(cache)],
+        check=True,
+        cwd=PLUGIN,
+        capture_output=True,
+        text=True,
+    )
+    packed_name = completed.stdout.strip().splitlines()[-1]
+    packed = cache / packed_name
+    if not packed.is_file():
+        raise RuntimeError(f"npm pack did not create expected archive: {packed_name}")
+    if packed != target:
+        packed.replace(target)
 
 
 def fetch_packages():
@@ -86,13 +126,16 @@ def fetch_packages():
     for name, version in RUNTIME_PACKAGES.items():
         entry = locked[f"node_modules/{name}"]
         if entry["version"] != version:
-            raise RuntimeError(f"Lock mismatch for {name}: {entry['version']} != {version}")
+            raise RuntimeError(
+                f"Lock mismatch for {name}: {entry['version']} != {version}"
+            )
         target = cache / f"{name.replace('/', '__').replace('@', '')}-{version}.tgz"
         if not target.exists():
-            with urllib.request.urlopen(entry["resolved"]) as response:
-                target.write_bytes(response.read())
+            fetch_missing_archive(name, version, target, cache)
         algorithm, encoded = entry["integrity"].split("-", 1)
-        actual = base64.b64encode(hashlib.new(algorithm, target.read_bytes()).digest()).decode()
+        actual = base64.b64encode(
+            hashlib.new(algorithm, target.read_bytes()).digest()
+        ).decode()
         if actual != encoded:
             target.unlink(missing_ok=True)
             raise RuntimeError(f"Integrity mismatch for {name}")
@@ -105,14 +148,21 @@ def excluded(relative, package=False):
     if relative.name in EXCLUDED_FILES or parts & EXCLUDED_PARTS:
         return True
     lower = relative.name.lower()
-    if package and (lower.startswith("readme") or lower.startswith("changelog") or lower.endswith((".map", ".ts", ".mts", ".cts"))):
-        return True
-    return False
+    return bool(
+        package
+        and (
+            lower.startswith(("readme", "changelog"))
+            or lower.endswith((".map", ".ts", ".mts", ".cts"))
+        )
+    )
 
 
 def copy_source_tree():
     if STAGE.parent.exists():
-        shutil.rmtree(STAGE.parent)
+        try:
+            shutil.rmtree(STAGE.parent)
+        except OSError as exc:
+            raise RuntimeError(f"Unable to reset build stage: {STAGE.parent}") from exc
     STAGE.mkdir(parents=True)
     for source in sorted(PLUGIN.rglob("*")):
         relative = source.relative_to(PLUGIN)
@@ -153,7 +203,7 @@ def pe_machine(path):
     if data[:2] != b"MZ":
         raise RuntimeError(f"Not PE: {path}")
     offset = struct.unpack_from("<I", data, 0x3C)[0]
-    if data[offset:offset + 4] != b"PE\0\0":
+    if data[offset : offset + 4] != b"PE\0\0":
         raise RuntimeError(f"Invalid PE: {path}")
     return struct.unpack_from("<H", data, offset + 4)[0]
 
@@ -167,14 +217,17 @@ def macho_cpu(path):
 
 
 def verify_stage(stage=STAGE):
-    manifest = json.loads((stage / "manifest.json").read_text(encoding="utf-8"))
+    manifest = read_json(stage / "manifest.json")
     if manifest["UUID"] != "com.arkamax.ulanzi.imageslide":
         raise RuntimeError("Plugin UUID changed")
-    if manifest["OS"] != [{"Platform": "windows", "MinimumVersion": "10"}, {"Platform": "mac", "MinimumVersion": "13"}]:
+    if manifest["OS"] != [
+        {"Platform": "windows", "MinimumVersion": "10"},
+        {"Platform": "mac", "MinimumVersion": "13"},
+    ]:
         raise RuntimeError("Universal OS declaration mismatch")
     installed = {}
     for name, version in RUNTIME_PACKAGES.items():
-        metadata = json.loads((stage / "node_modules" / name / "package.json").read_text(encoding="utf-8"))
+        metadata = read_json(stage / "node_modules" / name / "package.json")
         if metadata["name"] != name or metadata["version"] != version:
             raise RuntimeError(f"Package metadata mismatch: {name}")
         installed[name] = version
@@ -182,7 +235,9 @@ def verify_stage(stage=STAGE):
     actual_img = {f"@img/{path.name}" for path in img_root.iterdir() if path.is_dir()}
     expected_img = {name for name in RUNTIME_PACKAGES if name.startswith("@img/")}
     if actual_img != expected_img:
-        raise RuntimeError(f"Unexpected @img inventory: {sorted(actual_img ^ expected_img)}")
+        raise RuntimeError(
+            f"Unexpected @img inventory: {sorted(actual_img ^ expected_img)}"
+        )
     native = {
         "@img/sharp-win32-x64": ("*.node", 0x8664, pe_machine),
         "@img/sharp-darwin-x64": ("*.node", 0x01000007, macho_cpu),
@@ -194,7 +249,9 @@ def verify_stage(stage=STAGE):
         files = list((stage / "node_modules" / name).rglob(pattern))
         if not files or any(inspector(path) != expected for path in files):
             raise RuntimeError(f"Native architecture mismatch: {name}")
-    win_dlls = list((stage / "node_modules" / "@img" / "sharp-win32-x64").rglob("*.dll"))
+    win_dlls = list(
+        (stage / "node_modules" / "@img" / "sharp-win32-x64").rglob("*.dll")
+    )
     if not win_dlls or any(pe_machine(path) != 0x8664 for path in win_dlls):
         raise RuntimeError("Windows x64 libvips inventory mismatch")
     if not (stage / "node_modules" / "ws" / "lib" / "websocket.js").is_file():
@@ -212,14 +269,23 @@ def zip_tree(output, files):
 
 
 def plugin_files():
-    return [(path, f"{PLUGIN_NAME}/{path.relative_to(STAGE).as_posix()}") for path in STAGE.rglob("*") if path.is_file()]
+    return [
+        (path, f"{PLUGIN_NAME}/{path.relative_to(STAGE).as_posix()}")
+        for path in STAGE.rglob("*")
+        if path.is_file()
+    ]
 
 
 def source_files():
     result = []
     for path in ROOT.rglob("*"):
         relative = path.relative_to(ROOT)
-        if not path.is_file() or set(relative.parts) & SOURCE_EXCLUDED_PARTS or relative.name in GENERATED_NAMES or relative.name in EXCLUDED_FILES:
+        if (
+            not path.is_file()
+            or set(relative.parts) & SOURCE_EXCLUDED_PARTS
+            or relative.name in GENERATED_NAMES
+            or relative.name in EXCLUDED_FILES
+        ):
             continue
         result.append((path, f"ImageSlidePlugin-source/{relative.as_posix()}"))
     return result
@@ -239,23 +305,47 @@ def verify_delivery_privacy(files):
         for location, payload in artifact_payloads(path):
             for marker in PRIVACY_MARKERS:
                 if marker in payload:
-                    raise RuntimeError(f"Private source identity found in delivery artifact: {location}")
-    receipt = json.loads(PROFILE_RECEIPT.read_text(encoding="utf-8"))
-    forbidden = {"source_package_id", "source_profile_id", "profile_id_map", "input_sha256"}
+                    raise RuntimeError(
+                        f"Private source identity found in delivery artifact: {location}"
+                    )
+    receipt = read_json(PROFILE_RECEIPT)
+    forbidden = {
+        "source_package_id",
+        "source_profile_id",
+        "profile_id_map",
+        "input_sha256",
+    }
     if forbidden & receipt.keys():
         raise RuntimeError("Portable profile receipt contains source provenance fields")
 
 
 def build_artifacts():
     subprocess.run(
-        [sys.executable, str(ROOT / "tools" / "profile_tool.py"), "receipt", str(PROFILE), "--output", str(PROFILE_RECEIPT)],
+        [
+            sys.executable,
+            str(ROOT / "tools" / "profile_tool.py"),
+            "receipt",
+            str(PROFILE),
+            "--output",
+            str(PROFILE_RECEIPT),
+        ],
         check=True,
     )
     zip_tree(ARTIFACTS[0], plugin_files())
     zip_tree(ARTIFACTS[1], source_files())
-    helpers = [(path, f"ImageSlideSetupHelper/{path.relative_to(PLUGIN / 'helper').as_posix()}") for path in (PLUGIN / "helper").rglob("*") if path.is_file()]
+    helpers = [
+        (
+            path,
+            f"ImageSlideSetupHelper/{path.relative_to(PLUGIN / 'helper').as_posix()}",
+        )
+        for path in (PLUGIN / "helper").rglob("*")
+        if path.is_file()
+    ]
     zip_tree(ARTIFACTS[2], helpers)
-    text = "".join(f"{sha256(path.read_bytes())}  {path.relative_to(ROOT).as_posix()}\n" for path in DELIVERY_FILES)
+    text = "".join(
+        f"{sha256(path.read_bytes())}  {path.relative_to(ROOT).as_posix()}\n"
+        for path in DELIVERY_FILES
+    )
     (ROOT / "SHA256SUMS.txt").write_text(text, encoding="utf-8", newline="\n")
     verify_delivery_privacy((*DELIVERY_FILES, ROOT / "SHA256SUMS.txt"))
 
