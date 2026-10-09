@@ -326,7 +326,9 @@ $restoreTemp=$manifest+'.restore';Copy-Item -LiteralPath $backup -Destination $r
 
     def test_release_builder_pins_only_the_three_runtime_targets(self):
         spec=importlib.util.spec_from_file_location("build_release",ROOT/"tools"/"build_release.py");builder=importlib.util.module_from_spec(spec);spec.loader.exec_module(builder)
-        self.assertEqual(builder.RUNTIME_PACKAGES["sharp"],"0.35.4");self.assertEqual(builder.RUNTIME_PACKAGES["ws"],"8.21.3")
+        locked=json.loads((PLUGIN/"package-lock.json").read_text(encoding="utf-8"))["packages"]
+        for name,version in builder.RUNTIME_PACKAGES.items():
+            self.assertEqual(version,locked[f"node_modules/{name}"]["version"],f"stale runtime pin for {name}")
         native={name for name in builder.RUNTIME_PACKAGES if name.startswith("@img/sharp-")}
         self.assertEqual(native,{"@img/sharp-win32-x64","@img/sharp-darwin-x64","@img/sharp-libvips-darwin-x64","@img/sharp-darwin-arm64","@img/sharp-libvips-darwin-arm64"})
         self.assertIn("__pycache__",builder.SOURCE_EXCLUDED_PARTS);self.assertIn(".pytest_cache",builder.SOURCE_EXCLUDED_PARTS)
