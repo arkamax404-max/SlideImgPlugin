@@ -21,6 +21,8 @@ SETUP_ID = "11111111-1111-4111-8111-111111111111"
 OTHER_SETUP_ID = "22222222-2222-4222-8222-222222222222"
 POWERSHELL = shutil.which("powershell.exe")
 spec = importlib.util.spec_from_file_location("profile_tool", ROOT / "tools" / "profile_tool.py")
+if spec is None or spec.loader is None:
+    raise RuntimeError("Unable to load tools/profile_tool.py")
 tool = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(tool)
 
@@ -46,7 +48,8 @@ class DeliveryTests(unittest.TestCase):
                         page_root = group_root / "Profiles" / page_id
                         page_root.mkdir()
                         (page_root / "manifest.json").write_text(json.dumps({"Controllers": controllers}), encoding="utf-8")
-            quoted = lambda value: str(value).replace("'", "''")
+            def quoted(value):
+                return str(value).replace("'", "''")
             script = Path(td) / "resolve.ps1"
             script.write_text(prefix + f"\n$base=Full '{quoted(base)}'\n$setting=Full '{quoted(base / 'Config' / 'setting_source.json')}'\ntry{{$r=ResolveTarget '{quoted(pressed_key)}' (ActionIdHash '{quoted(action_id)}');[pscustomobject]@{{store=$r.Store;groupId=$r.GroupId;pageId=$r.PageId;kind=$r.Kind;phase=$CurrentPhase}}|ConvertTo-Json -Compress;exit 0}}catch{{Write-Output (([string]$_.Exception.Message)+'|'+$CurrentPhase);exit 2}}\n", encoding="utf-8")
             return subprocess.run(["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(script)], capture_output=True, text=True)
@@ -86,9 +89,11 @@ class DeliveryTests(unittest.TestCase):
                 unrelated = base / "ProfilesV2" / "dddddddd-dddd-4ddd-8ddd-dddddddddddd"
                 unrelated.mkdir(parents=True)
                 (unrelated / "manifest.json").write_text("{broken", encoding="utf-8")
-            identity = lambda value: hashlib.sha256(value.lower().encode()).hexdigest()
+            def identity(value):
+                return hashlib.sha256(value.lower().encode()).hexdigest()
             request = {"store": "ProfilesV2", "groupId": group_id, "pageId": page_id, "manifestPath": str(page / "manifest.json"), "manifestSha256": "0" * 64 if case == "hash_changed" else hashlib.sha256(page_bytes).hexdigest(), "rootManifestSha256": hashlib.sha256(root_bytes).hexdigest(), "profileNameSha256": identity("Arkamax"), "deviceUuidSha256": identity("device-1")}
-            quoted = lambda value: str(value).replace("'", "''")
+            def quoted(value):
+                return str(value).replace("'", "''")
             prepare = f"$prepared=ResolveTarget '0_0' (ActionIdHash '{SETUP_ID}');if($prepared.Store-ne$request.store-or$prepared.GroupId-ne$request.groupId-or$prepared.PageId-ne$request.pageId){{throw 'prepare/apply mismatch'}};" if case == "valid" else ""
             script = Path(td) / "requested.ps1"
             script.write_text(prefix + f"\n$base=Full '{quoted(base)}';$setting=Full '{quoted(base / 'Config' / 'setting_source.json')}';$request=ConvertFrom-Json '{quoted(json.dumps(request))}'\ntry{{{prepare}$r=ResolveRequestedTarget $request '0_0' (ActionIdHash '{SETUP_ID}');$r|ConvertTo-Json -Compress;exit 0}}catch{{Write-Output ($_.Exception.Message+'|'+$CurrentPhase);exit 2}}", encoding="utf-8")
@@ -218,7 +223,8 @@ class DeliveryTests(unittest.TestCase):
             manifest = root / "manifest.json"
             manifest.write_bytes(original)
             script = root / "production-shape.ps1"
-            quoted = lambda value: str(value).replace("'", "''")
+            def quoted(value):
+                return str(value).replace("'", "''")
             script.write_text(f"$ErrorActionPreference='Stop'\n$manifest='{quoted(manifest)}';$backup='{quoted(root / 'replace-backup.json')}'\n$before=[IO.File]::ReadAllBytes($manifest);$doc=Get-Content -LiteralPath $manifest -Raw -Encoding UTF8|ConvertFrom-Json\n$pads=@($doc.Controllers|Where-Object{{$_.Type-eq'Keypad'-and$null-ne$_.Actions.PSObject.Properties['3_2']}});if($pads.Count-ne1){{throw 'shape'}}\n$entry=[ordered]@{{Action='com.arkamax.ulanzi.imageslide.slideshow';ActionID=[guid]::NewGuid().ToString();ActionParam=[ordered]@{{SmallViewMode=2}};LinkedTitle=$true;Name='Image Slideshow';Plugin=[ordered]@{{Name='Image Slideshow';UUID='com.arkamax.ulanzi.imageslide';Version='0.8.0'}};State=0;ViewParam=@([ordered]@{{Icon='';IconRel='';Name='Image Slideshow'}})}}\n$pads[0].Actions|Add-Member -NotePropertyName '3_2' -NotePropertyValue $entry -Force;$temp=$manifest+'.tmp';[IO.File]::WriteAllText($temp,($doc|ConvertTo-Json -Depth 30),(New-Object Text.UTF8Encoding($false)))\n$check=Get-Content -LiteralPath $temp -Raw -Encoding UTF8|ConvertFrom-Json;if($check.Controllers[1].Actions.'3_2'.Action-ne'com.arkamax.ulanzi.imageslide.slideshow'){{throw 'temp-readback'}}\n[IO.File]::Replace($temp,$manifest,$backup);$after=Get-Content -LiteralPath $manifest -Raw -Encoding UTF8|ConvertFrom-Json;$patched=[IO.File]::ReadAllBytes($manifest)\n$restoreTemp=$manifest+'.restore';Copy-Item -LiteralPath $backup -Destination $restoreTemp;$failedPatched='{quoted(root / 'failed-patched.json')}';[IO.File]::Replace($restoreTemp,$manifest,$failedPatched)\n[pscustomobject]@{{backupMatches=([Convert]::ToBase64String([IO.File]::ReadAllBytes($backup))-eq[Convert]::ToBase64String($before));action=$after.Controllers[1].Actions.'3_2'.Action;restored=([Convert]::ToBase64String([IO.File]::ReadAllBytes($manifest))-eq[Convert]::ToBase64String($before));failedMatches=([Convert]::ToBase64String([IO.File]::ReadAllBytes($failedPatched))-eq[Convert]::ToBase64String($patched))}}|ConvertTo-Json -Compress\n", encoding="utf-8")
             run = subprocess.run(["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(script)], capture_output=True, text=True)
             self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
@@ -259,7 +265,8 @@ class DeliveryTests(unittest.TestCase):
                 second.mkdir()
                 (second / "manifest.before.json").write_bytes(original)
                 (second / "receipt.json").write_text(json.dumps(receipt, separators=(",", ":")), encoding="utf-8")
-            quoted = lambda value: str(value).replace("'", "''")
+            def quoted(value):
+                return str(value).replace("'", "''")
             script = root / "restore.ps1"
             tamper = "$restore.receiptSha256='0'*64;" if case == "request_tamper" else ""
             script.write_text(prefix + f"\n$backupRoot=Full '{quoted(backup_root)}';$target=[pscustomobject]@{{Store='ProfilesV2';GroupId='group-a';PageId='page-a';Manifest=(Full '{quoted(manifest)}');Kind='restore'}}\ntry{{$candidate=FindRestoreCandidate $target;$restore=[pscustomobject]@{{runId=$candidate.RunId;receiptSha256=$candidate.ReceiptSha256;backupSha256=$candidate.BackupSha256;beforeSha256=$candidate.BeforeSha256;afterSha256=$candidate.AfterSha256}};{tamper}$resolved=ResolveRequestedRestore $target $restore;[pscustomobject]@{{runId=$resolved.RunId;phase=$CurrentPhase}}|ConvertTo-Json -Compress;exit 0}}catch{{Write-Output ($_.Exception.Message+'|'+$CurrentPhase);exit 2}}", encoding="utf-8")
@@ -402,7 +409,7 @@ class DeliveryTests(unittest.TestCase):
         phases = ("COMPAT_PLUGIN_ROOT", "COMPAT_MANIFEST_READ", "COMPAT_EXE_PATH", "COMPAT_VERSION_READ", "COMPAT_HASH_READ", "COMPAT_ENV_PATHS")
         positions = [helper.index("SetPhase '" + phase + "'") for phase in phases]
         self.assertEqual(positions, sorted(positions))
-        for start, end in zip(positions, positions[1:] + [helper.index("$request=$null;$bindingHash=''")]):
+        for start, end in zip(positions, positions[1:] + [helper.index("$request=$null;$bindingHash=''")], strict=True):
             self.assertIn("try{", helper[start:end])
             self.assertIn("catch{", helper[start:end])
 
@@ -444,7 +451,8 @@ class DeliveryTests(unittest.TestCase):
             manifest.write_text('{"before":true}', encoding="utf-8")
             request_root = root / "requests"
             script = root / "request.ps1"
-            quoted = lambda value: str(value).replace("'", "''")
+            def quoted(value):
+                return str(value).replace("'", "''")
             script.write_text(prefix + f"""\n$ErrorActionPreference='Stop'\n$requestRoot=Full '{quoted(request_root)}'\n$manifest=Full '{quoted(manifest)}'\n[IO.Directory]::CreateDirectory($requestRoot)|Out-Null;$now=[DateTime]::UtcNow\n$request=[ordered]@{{schema='com.arkamax.ulanzi.imageslide.setup-request/v5';pluginVersion='0.2.0';createdUtc=$now.ToString('o');manifestSha256=(Hash $manifest)}}\n$json=CanonicalJson $request;$digest=RequestHash $json;$id=[guid]::NewGuid().ToString('N');$requestFile=Under (Join-Path $requestRoot ($id+'.json')) $requestRoot;$hashFile=$requestFile+'.sha256';$tmp=$requestFile+'.tmp'\nWriteUtf8 $tmp $json;Move-Item -LiteralPath $tmp -Destination $requestFile;WriteUtf8 $hashFile ($digest+"`n")\n$pointer=[ordered]@{{schema='com.arkamax.ulanzi.imageslide.request-pointer/v1';file=[IO.Path]::GetFileName($requestFile);sha256=$digest}};WriteUtf8 (Join-Path $requestRoot 'current.json') (CanonicalJson $pointer)\n$backup=Join-Path $requestRoot 'manifest.before.json';Copy-Item $manifest $backup;$beforeHash=Hash $backup;WriteUtf8 $manifest '{{"after":true}}';$afterHash=Hash $manifest;$receipt=Join-Path $requestRoot 'receipt.json';WriteUtf8 $receipt '{{"result":"success"}}';$receiptHash=Hash $receipt\n[pscustomobject]@{{pointer=(Test-Path (Join-Path $requestRoot 'current.json'));requestHash=(Hash $requestFile);digest=$digest;backupHash=$beforeHash;afterHash=$afterHash;receiptHash=$receiptHash}}|ConvertTo-Json -Compress\n""", encoding="utf-8")
             run = subprocess.run(["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(script)], capture_output=True, text=True, check=True)
             result = json.loads(run.stdout)
@@ -515,6 +523,8 @@ class DeliveryTests(unittest.TestCase):
 
     def test_release_builder_pins_only_the_three_runtime_targets(self):
         spec = importlib.util.spec_from_file_location("build_release", ROOT / "tools" / "build_release.py")
+        if spec is None or spec.loader is None:
+            raise RuntimeError("Unable to load tools/build_release.py")
         builder = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(builder)
         locked = json.loads((PLUGIN / "package-lock.json").read_text(encoding="utf-8"))["packages"]
@@ -569,6 +579,8 @@ class DeliveryTests(unittest.TestCase):
             self.assertIn("ImageSlidePlugin-source/com.arkamax.ulanzi.imageslide.ulanziPlugin/test/macos-setup.test.js", source_names)
             self.assertFalse(any(name.endswith((".ulanziDeckProfile", ".ulanziDeckProfile.receipt.json")) for name in source_names))
         spec = importlib.util.spec_from_file_location("build_release_privacy", ROOT / "tools" / "build_release.py")
+        if spec is None or spec.loader is None:
+            raise RuntimeError("Unable to load tools/build_release.py")
         builder = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(builder)
         expected_delivery = {path.relative_to(ROOT).as_posix() for path in builder.DELIVERY_FILES}
