@@ -102,9 +102,24 @@ def lock_packages():
     return read_json(PLUGIN / "package-lock.json")["packages"]
 
 
+def npm_launcher():
+    launcher = shutil.which("npm")
+    if launcher is None:
+        raise RuntimeError(
+            "npm is required to build the release bundle but was not found on PATH"
+        )
+    return launcher
+
+
 def fetch_missing_archive(name, version, target, cache):
     completed = subprocess.run(
-        ["npm", "pack", f"{name}@{version}", "--pack-destination", str(cache)],
+        [
+            npm_launcher(),
+            "pack",
+            f"{name}@{version}",
+            "--pack-destination",
+            str(cache),
+        ],
         check=True,
         cwd=PLUGIN,
         capture_output=True,
