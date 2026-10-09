@@ -94,3 +94,7 @@ Version 0.8.0 aligns **Setup Large Display** with the Media Control for D200 plu
 The Windows helper no longer pins a single Studio location. It resolves the executable from the first candidate path that exists, then accepts only a pinned file version and SHA-256 pair. Build `3.2.11.0` and build `3.3.9.0` are both supported, and a candidate that matches neither still fails closed with `COMPATIBILITY_UNSUPPORTED`.
 
 Runtime slideshow behavior, persisted settings, plugin and action UUIDs, and the macOS manual-reopen flow are unchanged, so this update requires no profile migration. Install the 0.8.0 package over 0.7.5 and reopen Studio.
+
+## Updating 0.8.0 to 0.8.1
+
+Version 0.8.1 upgrades the bundled `sharp` runtime to `0.35.5` to pick up its security fix. Plugin behavior, persisted settings, profile identities, and the setup flow are unchanged, so this update requires no profile migration. Install the 0.8.1 package over 0.8.0 and reopen Studio.

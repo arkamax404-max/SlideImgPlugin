@@ -4,7 +4,7 @@
   "Description": "Automatically resizes local images and adds clock, weather, or system-resource screens for the Ulanzi D200.",
   "Overview": "Center-crop local images to 458 x 196 without changing the originals; rotate clock, weather, CPU/GPU/RAM screens.",
   "Author": "Santiago Pérez",
-  "Version": "0.8.0",
+  "Version": "0.8.1",
   "Icon": "resources/icon.png",
   "Category": "Arkamax",
   "CategoryIcon": "resources/category.png",

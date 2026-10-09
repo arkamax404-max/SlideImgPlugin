@@ -9,6 +9,7 @@ import { ACTION_UUID, PLUGIN_UUID, SlideshowService, createDateTimeSlide, eligib
 import { loadSlide, pngDimensions } from "../plugin/images.js";
 
 const root=resolve(dirname(fileURLToPath(import.meta.url)),"..");
+const PLUGIN_VERSION=JSON.parse(readFileSync(join(root,"package.json"),"utf8")).version;
 const svg=(color="#123456",width=458,height=196)=>`<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}"><rect width="${width}" height="${height}" fill="${color}"/></svg>`;
 const weatherResponse=(location="Madrid")=>({location:{name:location,country:"Spain"},current:{last_updated_epoch:1788858000,temp_c:22,temp_f:71.6,feelslike_c:22.5,feelslike_f:72.5,humidity:48,wind_kph:14,wind_mph:8.7,is_day:1,condition:{text:"Partly cloudy",code:1003}},forecast:{forecastday:[0,1,2].map((offset)=>({date:`2026-09-${String(8+offset).padStart(2,"0")}`,day:{mintemp_c:15+offset,maxtemp_c:24+offset,mintemp_f:59+offset,maxtemp_f:75+offset,daily_chance_of_rain:20+offset,condition:{code:offset===1?1183:1003}}}))}});
 
@@ -24,7 +25,7 @@ function fakeRuntime() {
 
 test("manifest and Property Inspector use the Studio 3.2.11 contract",()=>{
   const manifest=JSON.parse(readFileSync(join(root,"manifest.json"),"utf8"));
-assert.equal(PLUGIN_UUID.split(".").length,4);assert.equal(manifest.UUID,PLUGIN_UUID);assert.equal(manifest.Version,"0.8.0");assert.equal(manifest.Actions[0].UUID,ACTION_UUID);assert.equal(manifest.Author,"Santiago P\u00e9rez");
+assert.equal(PLUGIN_UUID.split(".").length,4);assert.equal(manifest.UUID,PLUGIN_UUID);assert.equal(manifest.Version,PLUGIN_VERSION);assert.equal(manifest.Actions[0].UUID,ACTION_UUID);assert.equal(manifest.Author,"Santiago P\u00e9rez");
   assert.match(manifest.Description,/automatically resizes/i);assert.match(manifest.Overview,/458 x 196/);assert.match(manifest.Overview,/without changing the originals/i);
   const icon=readFileSync(join(root,"resources","icon.svg"),"utf8");assert.match(icon,/linearGradient id="background"/);assert.equal((icon.match(/stroke="#dcecff"/g)||[]).length,2);assert.match(icon,/id="mountain"/);
   assert.equal(manifest.Actions[0].PropertyInspectorPath,"property-inspector/inspector.html");assert.equal(manifest.Software.MinVersion,"3.0.11");

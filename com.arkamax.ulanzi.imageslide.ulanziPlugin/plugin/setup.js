@@ -5,7 +5,7 @@ import { basename, join } from "node:path";
 import { homedir } from "node:os";
 
 export const SETUP_UUID="com.arkamax.ulanzi.imageslide.setup";
-export const PLUGIN_VERSION="0.8.0";
+export const PLUGIN_VERSION="0.8.1";
 const REQUEST_SCHEMA="com.arkamax.ulanzi.imageslide.setup-request/v5";
 const FAILURE_CODES=new Set([
   "PROFILE_NOT_FOUND","PROFILE_AMBIGUOUS","SETUP_INSTANCE_NOT_FOUND","PAGE_INVALID","SLOT_UNRELATED",

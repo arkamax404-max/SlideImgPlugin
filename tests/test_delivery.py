@@ -26,6 +26,8 @@ if spec is None or spec.loader is None:
 tool = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(tool)
 
+PLUGIN_VERSION = json.loads((PLUGIN / "package.json").read_text(encoding="utf-8"))["version"]
+
 class DeliveryTests(unittest.TestCase):
 
     def _resolve_fixture(self, devices, stores, pressed_key="0_0", action_id=SETUP_ID):
@@ -134,7 +136,7 @@ class DeliveryTests(unittest.TestCase):
         self.assertIn(receipt["profile_id"], profile_ids)
         self.assertEqual(receipt["action_id"], entry["ActionID"])
         self.assertEqual(entry["Action"], "com.arkamax.ulanzi.imageslide.slideshow")
-        self.assertEqual(entry["Plugin"], {"Name": "Image Slideshow", "UUID": "com.arkamax.ulanzi.imageslide", "Version": "0.8.0"})
+        self.assertEqual(entry["Plugin"], {"Name": "Image Slideshow", "UUID": "com.arkamax.ulanzi.imageslide", "Version": PLUGIN_VERSION})
 
     def test_portable_profile_receipt_generation_is_deterministic(self):
         profile = ROOT / "ImageSlide.ulanziDeckProfile"
@@ -574,7 +576,7 @@ class DeliveryTests(unittest.TestCase):
             names = archive.namelist()
             self.assertEqual({Path(n).parts[0] for n in names}, {plugin_root})
             manifest = json.loads(archive.read(plugin_root + "/manifest.json"))
-            self.assertEqual(manifest["Version"], "0.8.0")
+            self.assertEqual(manifest["Version"], PLUGIN_VERSION)
             self.assertEqual(manifest["Author"], "Santiago Pérez")
             for name in names:
                 if not name.endswith("/"):
