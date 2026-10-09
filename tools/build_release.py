@@ -46,16 +46,16 @@ PRIVACY_MARKERS = (
     b"a8eace19-" + b"3a71-47a9-ae9e-" + b"5e1bfc1c13c8",
 )
 RUNTIME_PACKAGES = {
-    "sharp": "0.35.4",
+    "sharp": "0.35.5",
     "ws": "8.21.3",
     "@img/colour": "1.1.0",
     "detect-libc": "2.1.2",
     "semver": "7.8.5",
-    "@img/sharp-win32-x64": "0.35.4",
-    "@img/sharp-darwin-x64": "0.35.4",
-    "@img/sharp-libvips-darwin-x64": "1.3.3",
-    "@img/sharp-darwin-arm64": "0.35.4",
-    "@img/sharp-libvips-darwin-arm64": "1.3.3",
+    "@img/sharp-win32-x64": "0.35.5",
+    "@img/sharp-darwin-x64": "0.35.5",
+    "@img/sharp-libvips-darwin-x64": "1.3.4",
+    "@img/sharp-darwin-arm64": "0.35.5",
+    "@img/sharp-libvips-darwin-arm64": "1.3.4",
 }
 EXCLUDED_PARTS = {
     ".git",
