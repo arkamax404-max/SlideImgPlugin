@@ -8,7 +8,9 @@ Authorized by the user on 2026-10-09: release preparation without publishing
 (tag, push, GitHub release and PR each need a separate explicit order), and
 "exclude odd/ from the source ZIP" for the privacy defect.
 
-Status: prepared and verified. Nothing tagged, pushed or published.
+Status: prepared and verified, and 0.8.1 is installed on this machine. Nothing
+tagged, pushed or published. The on-device D200 re-confirmation of the installed
+0.8.1 is the user's pending step.
 
 ## Entry condition satisfied
 
@@ -32,7 +34,9 @@ Setup request version (`plugin/setup.js` `PLUGIN_VERSION`,
 The physical Setup acceptance ran on the `0.8.0` string. The Node suite covers
 the cross-version request handling, and `test/setup.test.js` still exercises a
 `0.7.4` request against the current version, but the on-device Setup evidence for
-the `0.8.1` string does not exist until 0.8.1 is exercised on the D200.
+the `0.8.1` string did not exist until 0.8.1 reached the device. 0.8.1 is now
+installed on this machine and functionally verified, so the only step left in this
+gap is the on-device confirmation itself, which only the user can run.
 
 ## Tasks
 
@@ -105,6 +109,26 @@ See the commit list below.
 Candidate reported; tag, push, GitHub release and PR remain the user's explicit
 decisions.
 
+### R11 — Install 0.8.1 locally  ✅
+
+Authorized by the user ("haz la instalacion"). Studio was closed at the time, so the
+installer ran without stopping any process.
+
+Observed: preflight `PASS` with the candidate hashes (`7c299717...` for the plugin,
+`81f0a253...` for the profile), then the real run exited 0 reporting `PARTIAL: plugin
+installed and Ulanzi Studio started, but no verified .ulanziDeckProfile association
+was found.` That `PARTIAL` only means the automatic profile import was skipped;
+Studio started normally and the exact profile path was printed for manual import.
+
+Independent verification of the installed tree: 189 of 189 files byte-identical to
+the built ZIP (0 missing, 0 extra, 0 hash differences); `manifest.json` and
+`package.json` both report 0.8.1; `plugin/setup.js` `PLUGIN_VERSION` is `"0.8.1"`;
+the sharp pin is 0.35.5 with the `0.35.5` native binding and `libvips-cpp-8.18.7.dll`;
+the timestamped backup `...-20261009T221559Z-270ca5be` holds the previously accepted
+0.8.0 build; Studio runs as PID 11092; and a decode through Studio's Node v20.12.2
+from the installed tree reports sharp 0.35.5 / libvips 8.18.7 and produces a
+458x196 PNG.
+
 ## Evidence
 
 - R2 RED: a probe over `builder.source_files()` counted 12 `odd/` arcnames
@@ -137,6 +161,9 @@ decisions.
   not trip the privacy scan.
 - `verify_delivery_privacy` over the delivered files plus `SHA256SUMS.txt` raised
   no exception.
+- R11: `Install-ImageSlidePlugin.ps1 -WhatIf` -> PASS with the candidate hashes;
+  the real run exited 0 with the `PARTIAL` profile-import note; post-install checks
+  as recorded in R11.
 
 ## Commits on this branch
 
@@ -155,6 +182,5 @@ ImageSlidePlugin-source.zip                   1c3933fe0b761f397bdd248d416f1ff37e
 ## What is deliberately not done here
 
 - No git tag, no push, no GitHub release, no pull request.
-- The locally installed plugin remains the accepted 0.8.0 + sharp 0.35.5 build.
-  Installing 0.8.1 locally is a separate decision, and doing it would be what
-  closes the residual Setup-version gap.
+- The on-device D200 re-confirmation of the installed 0.8.1 (Setup plus a rotation)
+  is the user's step; it cannot be automated from here.
