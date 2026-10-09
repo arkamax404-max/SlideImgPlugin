@@ -122,7 +122,10 @@ function Assert-ZipEntriesSafe {
 function Assert-PluginContent {
     param([Parameter(Mandatory = $true)][string]$Root)
     $rootPath = Assert-PathUnderRoot -Path $Root -Root (Split-Path -Parent $Root)
-    foreach ($relative in @('manifest.json', 'config.json', 'plugin/app.js', 'plugin/slideshow.js', 'plugin/setup.js', 'plugin/protocol-client.js', 'property-inspector/inspector.html', 'property-inspector/inspector.js', 'property-inspector/setup.html', 'property-inspector/setup-inspector.js', 'helper/Start-ImageSlideSetup.ps1', 'helper/Invoke-ImageSlideSetup.ps1', 'helper/Apply-ImageSlideSetup.cmd', 'helper/compatibility.json', 'node_modules/sharp/dist/index.mjs', 'node_modules/@img/sharp-win32-x64/lib/sharp-win32-x64-0.35.4.node', 'node_modules/ws/index.js')) {
+    $sharpVersion = (Get-Content -LiteralPath (Join-Path $rootPath 'node_modules/sharp/package.json') -Raw | ConvertFrom-Json).version
+    if (-not $sharpVersion) { throw 'Unable to read the sharp package version from the staged plugin' }
+    $sharpBinding = 'node_modules/@img/sharp-win32-x64/lib/sharp-win32-x64-' + $sharpVersion + '.node'
+    foreach ($relative in @('manifest.json', 'config.json', 'plugin/app.js', 'plugin/slideshow.js', 'plugin/setup.js', 'plugin/protocol-client.js', 'property-inspector/inspector.html', 'property-inspector/inspector.js', 'property-inspector/setup.html', 'property-inspector/setup-inspector.js', 'helper/Start-ImageSlideSetup.ps1', 'helper/Invoke-ImageSlideSetup.ps1', 'helper/Apply-ImageSlideSetup.cmd', 'helper/compatibility.json', 'node_modules/sharp/dist/index.mjs', $sharpBinding, 'node_modules/ws/index.js')) {
         $essential = Assert-PathUnderRoot -Path (Join-Path $rootPath $relative.Replace('/', '\')) -Root $rootPath
         if (-not (Test-Path -LiteralPath $essential -PathType Leaf)) { throw "Missing essential plugin file: $relative" }
     }

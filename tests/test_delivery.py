@@ -555,6 +555,11 @@ class DeliveryTests(unittest.TestCase):
     @unittest.skipIf(os.environ.get("IMAGESLIDE_SKIP_ARTIFACT_TESTS") == "1", "release artifacts are built only after source tests pass")
     def test_packages_and_checksum_manifest_read_back(self):
         plugin_root = "com.arkamax.ulanzi.imageslide.ulanziPlugin"
+        spec = importlib.util.spec_from_file_location("build_release_native", ROOT / "tools" / "build_release.py")
+        if spec is None or spec.loader is None:
+            raise RuntimeError("Unable to load tools/build_release.py")
+        builder = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(builder)
         with zipfile.ZipFile(ROOT / (plugin_root + ".zip")) as archive:
             self.assertIsNone(archive.testzip())
             names = archive.namelist()
@@ -565,8 +570,17 @@ class DeliveryTests(unittest.TestCase):
             for name in names:
                 if not name.endswith("/"):
                     self.assertNotIn(b"Get-FileHash", archive.read(name))
-            for member in ("plugin/app.js", "plugin/images.js", "plugin/setup.js", "property-inspector/inspector.html", "property-inspector/setup.html", "helper/Start-ImageSlideSetup.ps1", "helper/Invoke-ImageSlideSetup.ps1", "helper/Invoke-ImageSlideSetup.mjs", "helper/compatibility.json", "node_modules/sharp/dist/index.mjs", "node_modules/ws/lib/websocket.js", "node_modules/@img/sharp-win32-x64/lib/sharp-win32-x64-0.35.4.node", "node_modules/@img/sharp-darwin-x64/lib/sharp-darwin-x64-0.35.4.node", "node_modules/@img/sharp-libvips-darwin-x64/lib/libvips-cpp.8.18.6.dylib", "node_modules/@img/sharp-darwin-arm64/lib/sharp-darwin-arm64-0.35.4.node", "node_modules/@img/sharp-libvips-darwin-arm64/lib/libvips-cpp.8.18.6.dylib"):
+            static_members = ("plugin/app.js", "plugin/images.js", "plugin/setup.js", "property-inspector/inspector.html", "property-inspector/setup.html", "helper/Start-ImageSlideSetup.ps1", "helper/Invoke-ImageSlideSetup.ps1", "helper/Invoke-ImageSlideSetup.mjs", "helper/compatibility.json", "node_modules/sharp/dist/index.mjs", "node_modules/ws/lib/websocket.js")
+            native_members = (
+                "node_modules/" + package + "/lib/" + package.removeprefix("@img/") + "-" + builder.RUNTIME_PACKAGES[package] + ".node"
+                for package in ("@img/sharp-win32-x64", "@img/sharp-darwin-x64", "@img/sharp-darwin-arm64")
+            )
+            for member in (*static_members, *native_members):
                 self.assertIn(plugin_root + "/" + member, names)
+            for package in ("@img/sharp-libvips-darwin-x64", "@img/sharp-libvips-darwin-arm64"):
+                lib_prefix = plugin_root + "/node_modules/" + package + "/lib/"
+                dylibs = [name for name in names if name.startswith(lib_prefix) and Path(name).name.startswith("libvips-cpp.") and Path(name).name.endswith(".dylib")]
+                self.assertEqual(len(dylibs), 1, f"expected exactly one libvips dylib in {package}")
             img_packages = {Path(name).parts[3] for name in names if len(Path(name).parts) > 3 and Path(name).parts[1:3] == ("node_modules", "@img")}
             self.assertEqual(img_packages, {"colour", "sharp-win32-x64", "sharp-darwin-x64", "sharp-libvips-darwin-x64", "sharp-darwin-arm64", "sharp-libvips-darwin-arm64"})
         for name in ("ImageSlidePlugin-source.zip", "ImageSlideSetupHelper.zip"):

@@ -168,6 +168,6 @@ Clock and calendar symbols are from [Lucide](https://github.com/lucide-icons/luc
 
 ## Reproducible local package
 
-Run `python3 tools/build_release.py` after tests pass. The builder downloads only lockfile-pinned runtime tarballs, verifies each SHA-512 integrity value, stages Sharp 0.35.4 for win32-x64, darwin-x64, and darwin-arm64, validates PE/Mach-O architectures without executing foreign binaries, and writes deterministic ZIP entries. It does not use host `npm install`, so optional-dependency pruning cannot remove another target platform.
+Run `python3 tools/build_release.py` after tests pass. The builder downloads only lockfile-pinned runtime tarballs, verifies each SHA-512 integrity value, stages Sharp 0.35.5 for win32-x64, darwin-x64, and darwin-arm64, validates PE/Mach-O architectures without executing foreign binaries, and writes deterministic ZIP entries. It does not use host `npm install`, so optional-dependency pruning cannot remove another target platform.
 
 Primary SDK references: [UlanziDeckPlugin-SDK](https://github.com/UlanziTechnology/UlanziDeckPlugin-SDK), [plugin-common-html](https://github.com/UlanziTechnology/plugin-common-html).
