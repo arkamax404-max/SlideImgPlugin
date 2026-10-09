@@ -541,6 +541,15 @@ class DeliveryTests(unittest.TestCase):
         self.assertIn("macho_cpu", source)
         self.assertIn('newline="\\n"', source)
 
+    def test_source_archive_excludes_internal_odd_records(self):
+        spec = importlib.util.spec_from_file_location("build_release_odd", ROOT / "tools" / "build_release.py")
+        if spec is None or spec.loader is None:
+            raise RuntimeError("Unable to load tools/build_release.py")
+        builder = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(builder)
+        odd = [arcname for _, arcname in builder.source_files() if Path(arcname).parts[1:2] == ("odd",)]
+        self.assertEqual(odd, [])
+
     def test_every_generated_slideshow_assignment_hides_the_clock(self):
         plugin = PLUGIN
         helper = (plugin / "helper" / "Invoke-ImageSlideSetup.ps1").read_text(encoding="utf-8")
@@ -591,6 +600,7 @@ class DeliveryTests(unittest.TestCase):
             self.assertIn("ImageSlidePlugin-source/tools/build_release.py", source_names)
             self.assertIn("ImageSlidePlugin-source/tests/test_delivery.py", source_names)
             self.assertIn("ImageSlidePlugin-source/com.arkamax.ulanzi.imageslide.ulanziPlugin/test/macos-setup.test.js", source_names)
+            self.assertFalse(any(name.startswith("ImageSlidePlugin-source/odd/") for name in source_names))
             self.assertFalse(any(name.endswith((".ulanziDeckProfile", ".ulanziDeckProfile.receipt.json")) for name in source_names))
         spec = importlib.util.spec_from_file_location("build_release_privacy", ROOT / "tools" / "build_release.py")
         if spec is None or spec.loader is None:

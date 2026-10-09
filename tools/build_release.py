@@ -78,6 +78,7 @@ SOURCE_EXCLUDED_PARTS = {
     "node_modules",
     "__pycache__",
     ".pytest_cache",
+    "odd",
 }
 EXCLUDED_FILES = {".DS_Store", ".npmignore"}
 GENERATED_NAMES = {path.name for path in ARTIFACTS} | {
