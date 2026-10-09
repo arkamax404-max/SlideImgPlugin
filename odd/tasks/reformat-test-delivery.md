@@ -87,7 +87,29 @@ ruff and green tests.
 Confirm the file reports no blocking findings through the editor gate, the suite is
 green on the same counts, and no `noqa` was introduced. Commit and record evidence.
 
-## Evidence
+## Native review outcome
+
+Lineage `bb64f63c-2410-4802-91cb-604f25846c0c`, candidate range
+`5fac556..df865a7` (2 paths: this document and `tests/test_delivery.py`).
+
+- START created the lineage at tier `medium`, reason `executable_change` on
+  `tests/test_delivery.py`. Note the tier and lens selection were computed from the
+  change's nature, not from its size: 984 changed lines but a single
+  `review-reliability` lens, because this is a test-file change rather than a
+  process-launching production change. The previous two candidates were tier `high`
+  with four lenses at a fraction of these lines.
+- The single-lens group run closed with `native-last-event-closure` and the review
+  reached `state: approved`.
+- **The closure carried no `advisory_findings` key at all**, so the reviewer
+  reported nothing: not blocking, not advisory. For contrast, the two earlier
+  reviews each returned an `advisory_findings` object.
+- Acknowledgement executed: `authority: burned`,
+  `burn_evidence: gentle-ai.review-acknowledged/v1`,
+  `delivery: ordinary-repository-policy`.
+
+This closes the open question recorded earlier in this document: the reformat was
+accepted, the gate for the file is clean, and clearing the findings was not done by
+suppression.
 
 ### T2 — Commit A, purely syntactic (`7c99b03`)
 
