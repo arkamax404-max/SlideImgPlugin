@@ -8,9 +8,8 @@ Authorized by the user on 2026-10-09: release preparation without publishing
 (tag, push, GitHub release and PR each need a separate explicit order), and
 "exclude odd/ from the source ZIP" for the privacy defect.
 
-Status: prepared and verified, and 0.8.1 is installed on this machine. Nothing
-tagged, pushed or published. The on-device D200 re-confirmation of the installed
-0.8.1 is the user's pending step.
+Status: prepared, installed locally, and re-confirmed on the physical D200. Nothing
+tagged, pushed or published. The publish decision is the only step left.
 
 ## Entry condition satisfied
 
@@ -34,9 +33,9 @@ Setup request version (`plugin/setup.js` `PLUGIN_VERSION`,
 The physical Setup acceptance ran on the `0.8.0` string. The Node suite covers
 the cross-version request handling, and `test/setup.test.js` still exercises a
 `0.7.4` request against the current version, but the on-device Setup evidence for
-the `0.8.1` string did not exist until 0.8.1 reached the device. 0.8.1 is now
-installed on this machine and functionally verified, so the only step left in this
-gap is the on-device confirmation itself, which only the user can run.
+the `0.8.1` string did not exist until 0.8.1 reached the device. That gap is now
+closed: 0.8.1 was installed on this machine and the user re-confirmed Setup plus an
+image rotation on the physical D200. The candidate carries no known gap.
 
 ## Tasks
 
@@ -129,6 +128,14 @@ the timestamped backup `...-20261009T221559Z-270ca5be` holds the previously acce
 from the installed tree reports sharp 0.35.5 / libvips 8.18.7 and produces a
 458x196 PNG.
 
+### R11b — Re-confirm 0.8.1 on the physical D200  ✅
+
+The user reported the test as passed on the installed 0.8.1, covering Setup Large
+Display plus an image rotation. That closes the last surface without physical
+evidence: the `0.8.1` Setup request version string. No profile re-import was
+needed, because the Setup request version is produced by the running plugin and the
+active profile already carries the slideshow action.
+
 ## Evidence
 
 - R2 RED: a probe over `builder.source_files()` counted 12 `odd/` arcnames
@@ -164,6 +171,8 @@ from the installed tree reports sharp 0.35.5 / libvips 8.18.7 and produces a
 - R11: `Install-ImageSlidePlugin.ps1 -WhatIf` -> PASS with the candidate hashes;
   the real run exited 0 with the `PARTIAL` profile-import note; post-install checks
   as recorded in R11.
+- R11b: physical D200 acceptance of the installed 0.8.1 reported by the user
+  (Setup Large Display plus an image rotation).
 
 ## Commits on this branch
 
@@ -181,6 +190,5 @@ ImageSlidePlugin-source.zip                   1c3933fe0b761f397bdd248d416f1ff37e
 
 ## What is deliberately not done here
 
-- No git tag, no push, no GitHub release, no pull request.
-- The on-device D200 re-confirmation of the installed 0.8.1 (Setup plus a rotation)
-  is the user's step; it cannot be automated from here.
+- No git tag, no push, no GitHub release, no pull request. Those wait for an explicit
+  order, and the candidate is now fully covered and ready for them.
