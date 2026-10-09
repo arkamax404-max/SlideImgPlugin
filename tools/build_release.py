@@ -195,6 +195,8 @@ def extract_package(name, archive):
             elif member.isfile():
                 target.parent.mkdir(parents=True, exist_ok=True)
                 extracted = source.extractfile(member)
+                if extracted is None:
+                    raise RuntimeError(f"Unreadable package member: {member.name}")
                 target.write_bytes(extracted.read())
 
 
