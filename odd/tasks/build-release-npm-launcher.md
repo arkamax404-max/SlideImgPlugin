@@ -158,6 +158,45 @@ python tools/build_release.py --stage-only          -> exit 0, Verified universa
 The two skips are the Windows profile fixture tests that require
 `IMAGESLIDE_WINDOWS_PROFILE_FIXTURE` and `IMAGESLIDE_WINDOWS_PROFILE_ID`.
 
+## Native review outcome
+
+Lineage `a88094a9-6949-4dd9-b46c-533a9c087318`, candidate range `f0df7ff..44f8c6b`
+(3 paths: this document, `tests/test_release_builder.py`, `tools/build_release.py`).
+
+- START created the lineage at tier `high` (reason `process_boundary` / `shell_process`
+  on `tools/build_release.py`), 4 lenses, 252 changed lines, correction budget 126.
+- The four-lens group run closed with `native-last-event-closure` and the review
+  reached `state: approved`.
+- Acknowledgement executed: `authority: burned`,
+  `burn_evidence: gentle-ai.review-acknowledged/v1`,
+  `delivery: ordinary-repository-policy`.
+
+### Advisory finding (non-blocking, deferred)
+
+The closure returned exactly one finding, with the explicit instruction that it is
+non-blocking, opens no correction, and must be treated as separate later work
+rather than a reason to re-run review on this candidate:
+
+| id | lens | location | severity | disposition |
+|---|---|---|---|---|
+| `R3-missing-npm-branch` | reliability | `tests/test_release_builder.py:26-27` | WARNING | informational |
+
+The location is this branch of the new test:
+
+```python
+launcher = shutil.which("npm")
+if launcher is None:
+    self.skipTest("npm is unavailable on this host")
+```
+
+The point is fair: on a host without npm the guard skips, so it silently proves
+nothing exactly where it cannot run. A stronger design would make the test
+hermetic by stubbing `builder.shutil.which` to return a synthetic path and then
+asserting `argv[0]` equals that path. That still fails against the pre-fix code
+(bare `"npm"` would not equal the synthetic path) while needing no npm at all, so
+the guard would always execute. Not applied here: the review for this candidate is
+closed and burned, and the finding is informational.
+
 ## Open question left for the maintainer
 
 `tests/test_delivery.py` carries 237 pre-existing blocking analyzer findings that
