@@ -8,8 +8,9 @@ Authorized by the user on 2026-10-09: release preparation without publishing
 (tag, push, GitHub release and PR each need a separate explicit order), and
 "exclude odd/ from the source ZIP" for the privacy defect.
 
-Status: prepared, installed locally, and re-confirmed on the physical D200. Nothing
-tagged, pushed or published. The publish decision is the only step left.
+Status: released. Tag `v0.8.1`, `main` pushed, and the GitHub release published with
+the same eight assets as earlier releases, every digest verified against the local
+files.
 
 ## Entry condition satisfied
 
@@ -136,6 +137,28 @@ evidence: the `0.8.1` Setup request version string. No profile re-import was
 needed, because the Setup request version is produced by the running plugin and the
 active profile already carries the slideshow action.
 
+### R12 — Publish 0.8.1  ✅
+
+Authorized by the user ("Release completo, sin PR") after the physical
+re-confirmation.
+
+Observed, in order:
+
+- Pre-flight: `origin/main` (`efa3783`) was an ancestor of the branch tip, so
+  `git merge --ff-only` applied with no merge commit, and the tag `v0.8.1` did not
+  exist yet.
+- `git checkout main && git merge --ff-only fix/stale-sharp-pins-local-install` ->
+  fast-forward `efa3783..05ecd69`, 23 files changed.
+- `git push origin main` -> `efa3783..05ecd69  main -> main`; local and remote then
+  both at `05ecd69`, 0 ahead and 0 behind.
+- `git tag -a v0.8.1 -m "ImageSlidePlugin 0.8.1"` -> annotated tag object `bd2aeb9`
+  on commit `05ecd69`, pushed as a new tag.
+- `gh release create v0.8.1` with the same eight assets as `v0.8.0`:
+  <https://github.com/arkamax404-max/SlideImgPlugin/releases/tag/v0.8.1>. Title
+  `ImageSlidePlugin v0.8.1`, not a draft, not a prerelease.
+- Post-publish verification: all 8 assets report a GitHub digest equal to the local
+  file SHA-256, and 12/12 `SHA256SUMS.txt` entries still match the files on disk.
+
 ## Evidence
 
 - R2 RED: a probe over `builder.source_files()` counted 12 `odd/` arcnames
@@ -173,6 +196,9 @@ active profile already carries the slideshow action.
   as recorded in R11.
 - R11b: physical D200 acceptance of the installed 0.8.1 reported by the user
   (Setup Large Display plus an image rotation).
+- R12: release published. The 8 asset digests match the local files (plugin
+  `7c299717…`, source `1c3933fe…`, profile `81f0a253…`), and `main` plus the tag both
+  point at `05ecd69` locally and on the remote.
 
 ## Commits on this branch
 
@@ -188,7 +214,12 @@ com.arkamax.ulanzi.imageslide.ulanziPlugin.zip 7c299717516cfaed54490670dcb79f446
 ImageSlidePlugin-source.zip                   1c3933fe0b761f397bdd248d416f1ff37e580e6ef033a7d01f5c031a4b6b46c9
 ```
 
-## What is deliberately not done here
+## Publication
 
-- No git tag, no push, no GitHub release, no pull request. Those wait for an explicit
-  order, and the candidate is now fully covered and ready for them.
+- Branch merged into `main` fast-forward and pushed; annotated tag `v0.8.1` pushed;
+  GitHub release published with eight assets.
+- The feature branch `fix/stale-sharp-pins-local-install` stays local on purpose: a
+  pull request was explicitly declined, and the branch is already contained in
+  `main`.
+- `store.json` is delivered in the repository, but the Community Store upload itself
+  is a separate manual step and was not performed here.
