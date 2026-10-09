@@ -12,14 +12,23 @@ The script never modifies ProfilesV1, installed profiles, or exported profile fi
 If Windows has no verified .ulanziDeckProfile association to UlanziDeck.exe, Studio is
 opened normally and the exact profile path is printed for manual import.
 
+The Ulanzi Studio executable is discovered from the Studio uninstall registry entry
+and from the known install folders, so the script does not depend on one fixed
+install path or Studio version. Pass -StudioExecutable to override discovery.
+
 .EXAMPLE
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Install-ImageSlidePlugin.ps1 -WhatIf
 
 .EXAMPLE
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Install-ImageSlidePlugin.ps1
+
+.EXAMPLE
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Install-ImageSlidePlugin.ps1 -StudioExecutable 'C:\Program Files (x86)\Ulanzi Studio\UlanziDeck.exe'
 #>
 [CmdletBinding(SupportsShouldProcess = $true, ConfirmImpact = 'Medium')]
-param()
+param(
+    [string]$StudioExecutable
+)
 
 Set-StrictMode -Version 2.0
 $ErrorActionPreference = 'Stop'
@@ -28,7 +37,8 @@ $PluginName = 'com.arkamax.ulanzi.imageslide.ulanziPlugin'
 $PluginZip = Join-Path $PSScriptRoot ($PluginName + '.zip')
 $ProfileFile = Join-Path $PSScriptRoot 'ImageSlide.ulanziDeckProfile'
 $SumsFile = Join-Path $PSScriptRoot 'SHA256SUMS.txt'
-$StudioExe = 'C:\Program Files (x86)\UlanziDeck\UlanziDeck.exe'
+$StudioExeName = 'UlanziDeck.exe'
+$StudioFolderCandidates = @('C:\Program Files (x86)\Ulanzi Studio', 'C:\Program Files\Ulanzi Studio', 'C:\Program Files (x86)\UlanziDeck', 'C:\Program Files\UlanziDeck')
 $ExpectedPluginUuid = 'com.arkamax.ulanzi.imageslide'
 $ExpectedActionUuid = 'com.arkamax.ulanzi.imageslide.slideshow'
 $ExpectedSetupUuid = 'com.arkamax.ulanzi.imageslide.setup'
@@ -140,6 +150,27 @@ function Assert-PluginContent {
     if ($setupActions.Count -ne 1 -or $setupActions[0].PropertyInspectorPath -cne 'property-inspector/setup.html') { throw 'Expected setup action is missing, duplicated, or malformed' }
 }
 
+function Resolve-StudioExecutable {
+    param([string]$Explicit)
+    if (-not [string]::IsNullOrWhiteSpace($Explicit)) { return (Get-NormalizedPath $Explicit) }
+    $candidates = New-Object System.Collections.Generic.List[string]
+    foreach ($key in @('Registry::HKEY_LOCAL_MACHINE\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*', 'Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*', 'Registry::HKEY_CURRENT_USER\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*')) {
+        foreach ($item in @(Get-ItemProperty -Path $key -ErrorAction SilentlyContinue)) {
+            $displayName = $item.PSObject.Properties['DisplayName']
+            $uninstallEntry = $item.PSObject.Properties['UninstallString']
+            if (-not $displayName -or -not $uninstallEntry) { continue }
+            if (([string]$displayName.Value) -notlike 'Ulanzi Studio*') { continue }
+            $uninstall = [string]$uninstallEntry.Value
+            if ($uninstall -match '^"?([A-Za-z]:\\[^"]+?\.exe)') { $candidates.Add((Join-Path (Split-Path -Parent $Matches[1]) $StudioExeName)) }
+        }
+    }
+    foreach ($folder in $StudioFolderCandidates) { $candidates.Add((Join-Path $folder $StudioExeName)) }
+    foreach ($candidate in $candidates) {
+        if (Test-Path -LiteralPath $candidate -PathType Leaf) { return (Get-NormalizedPath $candidate) }
+    }
+    return $null
+}
+
 function Get-VerifiedProfileAssociation {
     param([Parameter(Mandatory = $true)][string]$ExpectedExecutable)
     $progIds = New-Object System.Collections.Generic.List[string]
@@ -171,7 +202,8 @@ $deployed = $false
 try {
     $running = @(Get-Process -ErrorAction SilentlyContinue | Where-Object { $_.ProcessName -ieq 'UlanziDeck' -or $_.ProcessName -ieq 'Ulanzi Studio' })
     if ($running.Count -gt 0) { throw 'Ulanzi Studio is running. Close it manually and run the installer again; no process was stopped.' }
-    if (-not (Test-Path -LiteralPath $StudioExe -PathType Leaf)) { throw "Ulanzi Studio 3.2.11 executable was not found at $StudioExe" }
+    $StudioExe = Resolve-StudioExecutable -Explicit $StudioExecutable
+    if (-not $StudioExe -or -not (Test-Path -LiteralPath $StudioExe -PathType Leaf)) { throw "Ulanzi Studio was not found. Install Ulanzi Studio, or pass -StudioExecutable with the full path to $StudioExeName." }
 
     $pluginHash = Assert-ArtifactHash $PluginZip
     $profileHash = Assert-ArtifactHash $ProfileFile
