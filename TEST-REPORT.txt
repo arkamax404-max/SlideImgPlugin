@@ -1,4 +1,4 @@
-ImageSlidePlugin 0.8.0 universal release verification
+ImageSlidePlugin 0.8.1 universal release verification
 ================================================================
 
 Scope
@@ -12,6 +12,7 @@ Scope
 - Independent content controls, two-panel clock, CPU/GPU/RAM screen, and ordered due-panel queue.
 - CPU/GPU/RAM sampling runs only while the system-resource panel is visible.
 - The active Windows plugin was backed up and updated for physical validation; packaging did not modify the live profile or D200 state.
+- Runtime sharp 0.35.5 with the delivered native targets, and a public source archive free of internal development records.
 
 Release work units
 ------------------
@@ -52,11 +53,32 @@ Release work units
    fixture-dependent tests skip when either value is unavailable.
    - Delivery-wide privacy checks inspect standalone files plus every member of the plugin, source,
      helper, and profile archives. The portable profile receipt omits all source identity provenance.
+   - The public source archive does not package the internal odd/ development records.
    - Rollback boundary: tools/profile_tool.py, tools/build_release.py, and tests/test_delivery.py.
 7. Release documentation and local artifacts
    - README, MIGRATION, Store copy, TEST-REPORT, three ZIPs, and SHA256SUMS.
    - Focused verification: deterministic rebuild produced identical ZIP hashes; ZIP/checksum readback PASS.
    - Rollback boundary: documentation and generated local artifacts only.
+8. Runtime security bump to sharp 0.35.5
+   - sharp moved from 0.35.4 to 0.35.5 (librsvg 2.63.2) for CVE-2026-96889 / GHSA-wq5f-xc86-pv6w,
+     with the lockfile, the builder runtime inventory, and every native target moved together.
+   - The installer and the delivery suite no longer restate the sharp version. The installer reads it
+     from the staged sharp package.json, and the suite derives the native member names from the
+     builder runtime inventory. The libvips dylib name is discovered, because it follows the libvips
+     version and not the npm package version.
+   - Focused verification: Node source tests 59/59; Python suite 34 tests, 2 skipped; the rebuilt
+     plugin ZIP was verified file-by-file against the staged tree (189/189 files); the Studio Node
+     runtime decoded and cover-resized an SVG to 458 x 196.
+   - Runtime boundary: accepted on a physical Windows D200 with image rotation, an SVG, clock/system
+     panels, and Setup Large Display.
+   - Rollback boundary: package and lock pins, builder runtime inventory, installer and suite
+     assertions, README, MIGRATION, and TEST-REPORT.
+9. Source archive privacy
+   - The public source archive stopped packaging the internal odd/ development records, one of which
+     carried a local development path and failed the delivery privacy scan.
+   - Focused verification: source_files() yields no odd/ arcname; the rebuilt archive has 0 of 90
+     members under odd/; the full delivery suite passes including the privacy scan.
+   - Rollback boundary: tools/build_release.py source exclusions and tests/test_delivery.py.
 
 Node source tests: PASS (59/59)
 --------------------------------
@@ -68,7 +90,7 @@ Environment: Windows repository source package; Node v24.15.0; npm 10.8.0.
 - Darwin dispatch, ProfilesV2-only target resolution, Setup/Restore lineage, bounded diagnostics,
   manual-reopen state, and post-rename byte-for-byte rollback tests passed.
 
-Python source/delivery tests before artifact build: PASS (29 passed, 3 skipped)
+Python source/delivery tests before artifact build: PASS (34 tests, 3 skipped)
 ----------------------------------------------------------------------------
 Command: IMAGESLIDE_SKIP_ARTIFACT_TESTS=1 python -m unittest discover -s tests
 Environment: Windows Python 3.14.4.
@@ -81,17 +103,19 @@ Universal package stage: PASS
 -----------------------------
 Command: python tools/build_release.py --stage-only
 - Lockfile URL/version/SHA-512 integrity verified for every staged package.
-- Runtime inventory is limited to sharp 0.35.4, ws 8.21.3, required JS dependencies, and these
+- Runtime inventory is limited to sharp 0.35.5, ws 8.21.3, required JS dependencies, and these
   native targets: win32-x64, darwin-x64, darwin-arm64 plus matching libvips payloads.
 - PE x64 and Mach-O x86_64/arm64 architecture headers were inspected without executing foreign
   binaries. No Linux, FreeBSD, wasm, Windows ia32/arm64, or development/test package variants remain.
 - Manifest verification requires the official OS array exactly: windows 10 and mac 13.
 
-Studio Node macOS x64 runtime: PASS
------------------------------------
-Command: arch -x86_64 <Studio Node> --input-type=module -e <import/decode harness>
-Result: Node v20.18.0 x64 loaded sharp 0.35.4/libvips 8.18.6 and decoded/resized an SVG to a
-458 x 196 PNG (2,458 bytes).
+Studio Node runtime: PASS (Windows x64 rerun; macOS x64 carried over)
+----------------------------------------------------------------------
+Command: <Studio install>\nodejs\node.exe -e <import/decode harness>, run from the extracted plugin ZIP
+Result: Node v20.12.2 loaded sharp 0.35.5/libvips 8.18.7 from the built archive and decoded/resized
+an SVG to a 458 x 196 PNG (4,726 bytes).
+Carried over, not re-executed: the macOS x64 harness run (Node v20.18.0 x64, sharp 0.35.4/libvips
+8.18.6, 458 x 196 PNG, 2,458 bytes) belongs to the 0.8.0 evidence and requires macOS to run.
 
 Final artifact verification: PASS
 ---------------------------------
@@ -99,15 +123,16 @@ Command: python tools/build_release.py
 Result: universal stage verified; plugin, source, and helper ZIPs built.
 
 Command: python -m unittest discover -s tests
-Result: PASS (30 passed, 2 skipped).
+Result: PASS (34 tests, 2 skipped).
 - One plugin ZIP root, all target native packages, source/helper ZIP CRCs, stable action/profile
   identity, and every SHA256SUMS entry were verified.
 - All 12 checksummed delivery files plus SHA256SUMS were scanned directly; ZIP and profile members
   were also decompressed and scanned. No inherited private Windows development path, local username,
   or source profile identifier remains. The portable receipt is bound to the unchanged profile hash,
   package/profile/action IDs, and exact manifest location without retaining source identity fields.
-- The source ZIP excludes generated profile/receipt payloads. Generic documented installation paths
-  and synthetic test paths and IDs remain intentionally present.
+- The source ZIP excludes generated profile/receipt payloads and the internal odd/ development
+  records, whose local development paths previously failed this scan. Generic documented
+  installation paths and synthetic test paths and IDs remain intentionally present.
 - The final two skips require the optional external production-shape Windows profile fixture.
 
 Physical validation status and limitations
@@ -118,6 +143,9 @@ Physical validation status and limitations
 - macOS clock overlay can remain visible; this is an accepted release-candidate limitation.
 - macOS requires manual Studio reopen after Setup; relaunch is not implemented.
 - Windows x64 installation, manual profile import, action discovery, slideshow rotation, and clock suppression passed on a physical D200.
+- The installed 0.8.0 plus sharp 0.35.5 candidate was accepted on a physical D200 across image
+  rotation, an SVG file (the path the librsvg advisory affected), clock/system panels, and Setup
+  Large Display. That accepted build is byte-for-byte identical to the built plugin ZIP.
 - Periodic date/time insertion, localized/system and explicit date formats, bold clock typography,
   and continuous date/time-only mode were accepted on the physical Windows D200.
 - Periodic/weather-only modes, flat PNG Meteocons, three-day forecast cards, and final typography
@@ -125,8 +153,12 @@ Physical validation status and limitations
 - Independent content controls, two-panel Lucide clock, live CPU/GPU/RAM cards, information-only
   rotation, and date/weather/system due-panel sequencing were accepted on the physical Windows D200.
 - Windows Setup accepted a physical Restore -> Install -> Restore cycle after Studio normalization.
-- Windows automated verification passed 59/59 Node tests and 30/30 available Python tests; 2
-  production-shape profile tests remain skipped because their optional external fixture was absent.
+- Windows automated verification passed 59/59 Node tests and the full available Python suite
+  (34 tests, 2 skipped); the 2 skips are the production-shape profile tests whose optional external
+  fixture was absent.
 - macOS arm64 packages were statically validated only; Apple Silicon was not physically tested.
+- The version string is also the Setup request version. The Setup acceptance above ran with the
+  0.8.0 string; the Node suite covers cross-version request handling, so an on-device Setup
+  re-confirmation on 0.8.1 remains the only surface without physical evidence.
 - Authoritative artwork uses the visually approved crop-safe 1200 x 630 JPEG cover with central safe margins and a 3:2 PNG banner.
 - Publication and upload occur only after this report, the clean artifacts, and their checksums pass.
