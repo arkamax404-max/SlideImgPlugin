@@ -4,6 +4,8 @@ import { UlanziProtocolClient } from "./protocol-client.js";
 import { ACTION_UUID, PLUGIN_UUID, SlideshowService, loadConfiguration } from "./slideshow.js";
 import { SetupService } from "./setup.js";
 
+import {mediaPreparer} from './media-preparer.js';
+
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const client = new UlanziProtocolClient();
 const service = new SlideshowService({ client, configuration: await loadConfiguration(root) });
@@ -12,7 +14,7 @@ service.bind();
 setup.bind();
 client.connect(PLUGIN_UUID);
 
-function shutdown() { service.close(); setup.close(); client.close(); }
+function shutdown() { service.close(); setup.close(); client.close(); void mediaPreparer.shutdown().catch(()=>{}); }
 process.once("SIGINT", shutdown);
 process.once("SIGTERM", shutdown);
 

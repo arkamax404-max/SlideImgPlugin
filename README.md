@@ -24,6 +24,10 @@ An existing successful **0.1.9** Setup patch does not need to be patched again. 
 5. Import `ImageSlide.ulanziDeckProfile` when prompted, or import it manually as **Image Slideshow**.
 6. Select the slideshow action, choose a folder in its Property Inspector, and verify the physical D200.
 
+## Source contribution: GIF support
+
+This source branch adds animated GIF preparation/playback. Existing release ZIPs stay unchanged until a maintainer builds a release. See [GIF support, limits and validation](docs/GIF_SUPPORT.md). Plugin-wide preferences and Setup/restore identity are retained.
+
 ## Choose images
 
 The Property Inspector separates image, date/time, weather, and system-resource content. **Refresh folder** sits beside **Select folder**, and **Show image slideshow** controls whether images participate in the rotation. Settings are plugin-wide because the cloned profile has one large-display slideshow instance.
@@ -31,7 +35,7 @@ The Property Inspector separates image, date/time, weather, and system-resource 
 | Rule | Behavior |
 | --- | --- |
 | Size | Exact 458 × 196 files pass through; other sizes up to 40 MP use centered cover resizing |
-| Types | PNG, JPG/JPEG, SVG |
+| Types | PNG, JPG/JPEG, SVG; GIF in this source contribution |
 | File limit | 8 MiB each |
 | Scope | Top-level files only |
 | Excluded | Links, subfolders, hidden/dot files, temporary downloads, incomplete or invalid files |

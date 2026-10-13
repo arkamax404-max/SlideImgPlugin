@@ -28,6 +28,22 @@ spec.loader.exec_module(tool)
 
 PLUGIN_VERSION = json.loads((PLUGIN / "package.json").read_text(encoding="utf-8"))["version"]
 
+# Use original synthetic profile bytes when no external fixture was supplied.
+# Never run Setup against an installed profile during automated validation.
+_fixture_root = tempfile.TemporaryDirectory(prefix="imageslide-contribution-profile-")
+if not os.environ.get("IMAGESLIDE_WINDOWS_PROFILE_FIXTURE"):
+    SOURCE = Path(_fixture_root.name) / "source.ulanziDeckProfile"
+    _package = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+    _page = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"
+    _prefix = _package + ".ulanziProfile/"
+    with io.BytesIO() as stream:
+        with zipfile.ZipFile(stream, "w") as archive:
+            archive.writestr(_prefix + "manifest.json",json.dumps({"Name":"Arkamax","Device":{"UUID":"synthetic-device","Model":"D200"},"Pages":{"Current":_page,"Pages":[_page]}}))
+            archive.writestr(_prefix + "Profiles/" + _page + "/manifest.json",json.dumps({"Controllers":[{"Type":"Encoder","Actions":{}},{"Type":"Keypad","Actions":{"3_2":{"Action":tool.BUILTIN_ACTION,"ActionID":SETUP_ID},"0_0":{"Action":"com.example.safe.action","ActionID":OTHER_SETUP_ID,"ActionParam":{"Preserve":True}}}}]}))
+        SOURCE.write_bytes(tool.HEADER + stream.getvalue())
+    TARGET = _page
+    WINDOWS_PROFILE_FIXTURE_AVAILABLE = True
+
 class DeliveryTests(unittest.TestCase):
 
     def _resolve_fixture(self, devices, stores, pressed_key="0_0", action_id=SETUP_ID):

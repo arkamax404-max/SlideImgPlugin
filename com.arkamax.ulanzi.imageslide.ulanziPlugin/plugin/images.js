@@ -1,7 +1,9 @@
 import { createHash } from "node:crypto";
-import { readFileSync, statSync } from "node:fs";
+import { constants } from "node:fs";
+import { open, lstat } from "node:fs/promises";
 import { extname } from "node:path";
 import sharp from "sharp";
+import { mediaPreparer } from './media-preparer.js';
 
 export const WIDTH = 458;
 export const HEIGHT = 196;
@@ -45,13 +47,36 @@ export function svgDimensions(buffer) {
   throw new Error("SVG dimensions not found");
 }
 
-export async function loadSlide(file) {
+export async function readMedia(file) {
+    const before=await lstat(file);
+    if(!before.isFile()||before.isSymbolicLink()||!before.size||before.size>(extname(file).toLowerCase()==='.gif'?16:8)*1024*1024)throw new Error('Media must be a real file within the 8 MiB static / 16 MiB GIF limit');
+    const handle=await open(file,constants.O_RDONLY|(constants.O_NOFOLLOW||0));
+    let buffer;
+    try{
+      const stat=await handle.stat();
+      if(!stat.isFile()||stat.ino!==before.ino||stat.dev!==before.dev||stat.size!==before.size)throw new Error('Media changed while opening; refresh again');
+      buffer=Buffer.alloc(stat.size);let offset=0;
+      while(offset<buffer.length){const {bytesRead}=await handle.read(buffer,offset,buffer.length-offset,offset);if(!bytesRead)throw new Error('Media changed while reading');offset+=bytesRead;}
+      const after=await handle.stat(),pathAfter=await lstat(file);
+      if(after.size!==stat.size||after.mtimeMs!==stat.mtimeMs||after.ctimeMs!==stat.ctimeMs||pathAfter.isSymbolicLink()||pathAfter.ino!==stat.ino)throw new Error('Media changed while reading; refresh again');
+    }finally{await handle.close();}
+    return {buffer,info:before};
+}
+
+export async function loadSlide(file,{preparer=mediaPreparer}={}) {
   const extension = extname(file).toLowerCase();
+  const {buffer,info}=await readMedia(file);
+  const signature=createHash('sha256').update(buffer).digest('hex');
+  if(extension === '.gif') {
+    const described=await preparer.describe(buffer,signature,{transfer:true});
+    return {...described,signature,name:file.split(/[\\/]/).pop(),modifiedMs:info.mtimeMs,prepare:async()=>{
+      const cached=await preparer.store.lookup(signature);if(cached)return cached;
+      const fresh=await readMedia(file);if(createHash('sha256').update(fresh.buffer).digest('hex')!==signature)throw new Error('GIF changed during preparation; refresh the folder');
+      return preparer.prepare(fresh.buffer,signature,{transfer:true});
+    }};
+  }
   const mime = MIME.get(extension);
   if (!mime) throw new Error("Unsupported image type");
-  const info = statSync(file);
-  if (!info.isFile() || info.size === 0 || info.size > 8 * 1024 * 1024) throw new Error("Image must be a non-empty file no larger than 8 MiB");
-  const buffer = readFileSync(file);
   const dimensions = extension === ".png" ? pngDimensions(buffer) : (extension === ".jpg" || extension === ".jpeg") ? jpegDimensions(buffer) : svgDimensions(buffer);
   if (!Number.isFinite(dimensions.width) || !Number.isFinite(dimensions.height) || dimensions.width <= 0 || dimensions.height <= 0 || dimensions.width * dimensions.height > MAX_INPUT_PIXELS) throw new Error("Image dimensions are unsafe");
   const resized = dimensions.width !== WIDTH || dimensions.height !== HEIGHT;
@@ -59,6 +84,5 @@ export async function loadSlide(file) {
     ? await sharp(buffer, { limitInputPixels: MAX_INPUT_PIXELS, failOn: "warning" }).rotate().resize(WIDTH, HEIGHT, { fit: "cover", position: "centre" }).png({ compressionLevel: 9 }).toBuffer()
     : buffer;
   const outputMime = resized ? "image/png" : mime;
-  const signature = createHash("sha256").update(buffer).digest("hex");
   return { name: file.split(/[\\/]/).pop(), dataUri: `data:${outputMime};base64,${output.toString("base64")}`, signature, modifiedMs: info.mtimeMs, resized };
 }
