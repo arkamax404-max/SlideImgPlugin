@@ -2,6 +2,7 @@ import EventEmitter from "node:events";
 import WebSocket from "ws";
 
 const REQUEST = "REQUEST";
+export const isActive=value=>value===true||value===1||value==='true'||value==='1';
 
 export class UlanziProtocolClient extends EventEmitter {
   constructor({ WebSocketImpl = WebSocket } = {}) {
@@ -45,8 +46,8 @@ export class UlanziProtocolClient extends EventEmitter {
       return;
     }
     data.context = this.encodeContext(data);
-    if (data.cmd === "setActive") data.active = Boolean(data.active ?? data.param?.active);
-    if (data.cmd === "setactive") data.active = Boolean(data.active ?? data.param?.active);
+    if (data.cmd === "setActive") data.active = isActive(data.active ?? data.param?.active);
+    if (data.cmd === "setactive") data.active = isActive(data.active ?? data.param?.active);
     this.emit(data.cmd, data);
   }
 

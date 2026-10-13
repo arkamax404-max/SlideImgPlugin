@@ -6,3 +6,6 @@
 .build-package/
 # Local Pi runtime state
 .atl/
+
+.local-pr/
+*results.txt
