@@ -1,6 +1,8 @@
 import { lstatSync, readdirSync, watch } from "node:fs";
+import { lstat, readdir } from 'node:fs/promises';
 import { basename, isAbsolute, join } from "node:path";
 import { loadSlide } from "./images.js";
+import { StaticImagePlayer } from './static-image-player.js';
 import { WEATHER_REFRESH_MS, WEATHER_RETRY_MS, createWeatherSlide, fetchWeatherForecast, renderWeatherSlide } from "./weather.js";
 import { SYSTEM_REFRESH_MS, SystemMonitor, renderSystemSlide } from "./system-monitor.js";
 
@@ -82,16 +84,16 @@ export function eligibleName(name) {
   return dot >= 0 && IMAGE_EXTENSIONS.has(lower.slice(dot));
 }
 
-export async function enumerateFolder(folderPath, sort = "name", fsApi = { lstatSync, readdirSync }, cache = new Map(), imageLoader = loadSlide) {
+export async function enumerateFolder(folderPath, sort = "name", fsApi = { lstatSync:lstat, readdirSync:readdir }, cache = new Map(), imageLoader = loadSlide) {
   if (!folderPath || !isAbsolute(folderPath)) throw new Error("Select an absolute folder path.");
-  const rootInfo = fsApi.lstatSync(folderPath);
+  const rootInfo = await fsApi.lstatSync(folderPath);
   if (!rootInfo.isDirectory() || rootInfo.isSymbolicLink()) throw new Error("Selected path must be a real directory, not a link.");
   const candidates = [];
-  for (const entry of fsApi.readdirSync(folderPath, { withFileTypes: true })) {
+  for (const entry of await fsApi.readdirSync(folderPath, { withFileTypes: true })) {
     if (!entry.isFile() || entry.isSymbolicLink?.() || !eligibleName(entry.name) || basename(entry.name) !== entry.name) continue;
     const file = join(folderPath, entry.name);
     try {
-      const info = fsApi.lstatSync(file);
+      const info = await fsApi.lstatSync(file);
       if (!info.isFile() || info.isSymbolicLink()) continue;
       candidates.push({ file, name: entry.name, modifiedMs: info.mtimeMs, size: info.size });
     } catch { /* A file can disappear during an atomic replace; the next rescan will see it. */ }
@@ -99,17 +101,26 @@ export async function enumerateFolder(folderPath, sort = "name", fsApi = { lstat
   candidates.sort((a, b) => sort === "date"
     ? (b.modifiedMs - a.modifiedMs || compareNames(a.name, b.name))
     : compareNames(a.name, b.name));
-  const slides = [], signatures = new Set(), errors = [], cacheKeys = new Set();
+  const slides = [], signatures = new Set(), errors = [], cacheKeys = new Set();let retainedBytes=0;
+  const expectedKeys=new Set(candidates.map(item=>`${item.file}\0${item.size}\0${item.modifiedMs}`));
+  for(const key of cache.keys())if(!expectedKeys.has(key))cache.delete(key);
   for (const item of candidates) {
     const cacheKey=`${item.file}\0${item.size}\0${item.modifiedMs}`;cacheKeys.add(cacheKey);
     try {
       let slide;if(cache.has(cacheKey))slide=cache.get(cacheKey);else{slide=await imageLoader(item.file);cache.set(cacheKey,slide)}
-      if(!slide)throw new Error("Cached image rejection");
+      if(slide?.rejection)throw new Error(slide.rejection);
+      if(!slide)throw new Error('Previously rejected media; use Refresh folder to retry');
       if (signatures.has(slide.signature)) continue;
+      const bytes=slide.retainedBytes??slide.preparedBytes??Buffer.byteLength(slide.dataUri);
+      if(retainedBytes+bytes>32*1024*1024){cache.delete(cacheKey);throw new Error('Gallery memory budget reached; use a smaller folder');}
+      retainedBytes+=bytes;
       signatures.add(slide.signature); slides.push(slide);
-    } catch { cache.set(cacheKey,null);errors.push(item.name); }
+    } catch(error) {
+      const rejection=error.message || 'Invalid media; refresh after replacing it';
+      cache.set(cacheKey,{rejection});errors.push(`${item.name}: ${rejection}`);
+    }
   }
-  return { slides, rejected: errors.length, resized: slides.filter((slide) => slide.resized).length, cacheKeys };
+  return { slides, rejected: errors.length, errors:[...new Set(errors)].slice(0,3), resized: slides.filter((slide) => slide.resized).length, cacheKeys };
 }
 
 function compareNames(a, b) {
@@ -118,8 +129,10 @@ function compareNames(a, b) {
 }
 
 export class SlideshowService {
-  constructor({ client, configuration, timerApi = globalThis, now = Date.now, fsApi, watchFactory = watch, fetchImpl = globalThis.fetch, systemMonitor = new SystemMonitor(), logger = console.log } = {}) {
+  constructor({ client, configuration, timerApi = globalThis, now = Date.now, fsApi, imageLoader = loadSlide, watchFactory = watch, fetchImpl = globalThis.fetch, systemMonitor = new SystemMonitor(), logger = console.log, displayPlayer, galleryBudget } = {}) {
     this.client=client; this.defaults=configuration.defaults; this.fallbackSlides=configuration.fallbackSlides;
+    this.imageLoader=imageLoader;
+    this.displayPlayer=displayPlayer||new StaticImagePlayer({client,timerApi});this.galleryBudget=galleryBudget;this.scanRunning=null;this.scanAgain=false;this.tickRunning=false;this.lifecycleGeneration=0;
     this.settings={...this.defaults}; this.slides=this.fallbackSlides; this.status={level:"ready",message:"Using included sample slides.",count:this.slides.length};
     this.timerApi=timerApi; this.now=now; this.fsApi=fsApi; this.watchFactory=watchFactory; this.fetchImpl=fetchImpl; this.systemMonitor=systemMonitor; this.logger=logger;
     this.contexts=new Map(); this.activeContexts=new Set(); this.inspectors=new Set(); this.lastSignature=new Map();
@@ -150,11 +163,13 @@ export class SlideshowService {
       this.contexts.set(event.context,{active:true}); this.activeContexts.add(event.context); this.inspectors.add(event.context);
       this.render(event.context,true); this.ensureRuntime();
     } else {
+      this.displayPlayer.remove(event.context);
       this.activeContexts.delete(event.context); this.contexts.set(event.context,{active:false}); this.lastSignature.delete(event.context);
       if (this.activeContexts.size===0) this.stopRuntime();
     }
   }
   clear(contexts) {
+    for(const context of contexts||[])this.displayPlayer.remove(context);
     for (const context of contexts||[]) { this.activeContexts.delete(context); this.contexts.delete(context); this.inspectors.delete(context); this.lastSignature.delete(context); }
     if (this.activeContexts.size===0) this.stopRuntime();
   }
@@ -170,10 +185,12 @@ export class SlideshowService {
     if (payload.type==="refreshWeather") { await this.refreshWeather(true); return; }
     if (payload.type!=="updateSettings") return;
     try {
-      const settings=normalizeSettings(payload.settings,this.settings); this.client.setGlobalSettings?.(settings,context); await this.applySettings(settings,true);
+      const settings=normalizeSettings(payload.settings,this.settings); await this.client.setGlobalSettings?.(settings,context); await this.applySettings(settings,true);
     } catch (error) { this.setStatus("error",error.message,0); }
   }
   async applySettings(settings, renderNow) {
+    if(Object.keys(settings).length===Object.keys(this.settings).length && Object.keys(settings).every(key=>settings[key]===this.settings[key])){this.broadcastStatus();return;}
+    const settingsGeneration=++this.lifecycleGeneration;this.scanGeneration++;this.stopDisplays();this.lastSignature.clear();
     const folderChanged=settings.folderPath!==this.settings.folderPath || settings.sort!==this.settings.sort;
     const weatherLocationChanged=settings.weatherLocation!==this.settings.weatherLocation, weatherUnitsChanged=settings.weatherUnits!==this.settings.weatherUnits, wasWeatherEnabled=this.settings.showWeather, willWeatherBeEnabled=settings.showWeather, weatherChanged=settings.weatherApiKey!==this.settings.weatherApiKey||weatherLocationChanged||wasWeatherEnabled!==willWeatherBeEnabled;
     if(weatherChanged||weatherUnitsChanged)this.weatherGeneration++;
@@ -181,7 +198,7 @@ export class SlideshowService {
     this.settings=settings; this.showingDateTime=false; this.dateTimeUntil=0; this.imagesSinceDateTime=0; this.showingWeather=false; this.weatherUntil=0; this.imagesSinceWeather=0; this.showingSystem=false; this.systemUntil=0; this.imagesSinceSystem=0; this.informationView=this.informationViews()[0]||"dateTime"; this.presentationQueue=[];
     if (folderChanged) { this.index=0; this.stopWatcher(); this.slideCache.clear(); }
     if(weatherUnitsChanged&&this.weatherData)this.weatherSlide=await renderWeatherSlide(this.weatherData,settings.weatherUnits);
-    await this.refreshWeather(weatherChanged||(weatherUnitsChanged&&!this.weatherData));if(!settings.showSystemStats)await this.refreshSystem(false);else if(!settings.showImages&&this.informationView==="system")await this.refreshSystem(true);else{this.systemStatus={level:"warning",message:"System resources update when their panel is shown."};this.nextSystemRefreshAt=0}await this.rescan(renderNow); this.nextSlideAt=this.now()+(settings.showImages?settings.intervalSeconds*1000:this.informationDurationMs()); this.imagesSinceDateTime=1; this.imagesSinceWeather=1; this.imagesSinceSystem=1; this.ensureRuntime(); this.broadcastStatus();
+    await this.refreshWeather(weatherChanged||(weatherUnitsChanged&&!this.weatherData));if(settingsGeneration!==this.lifecycleGeneration)return;if(!settings.showSystemStats)await this.refreshSystem(false);else if(!settings.showImages&&this.informationView==="system")await this.refreshSystem(true);else{this.systemStatus={level:"warning",message:"System resources update when their panel is shown."};this.nextSystemRefreshAt=0}if(settingsGeneration!==this.lifecycleGeneration)return;await this.rescan(renderNow);if(settingsGeneration!==this.lifecycleGeneration)return; this.nextSlideAt=this.now()+(settings.showImages?settings.intervalSeconds*1000:this.informationDurationMs()); this.imagesSinceDateTime=1; this.imagesSinceWeather=1; this.imagesSinceSystem=1; this.ensureRuntime(); this.broadcastStatus();
   }
   weatherEnabled() { return this.settings.showWeather; }
   async refreshWeather(force=false) {
@@ -198,27 +215,57 @@ export class SlideshowService {
   }
   async refreshSystem(force=false) {
     if(!this.settings.showSystemStats){this.systemStatus={level:"warning",message:"System resources are disabled."};this.nextSystemRefreshAt=Infinity;return false}
-    if(!force&&this.now()<this.nextSystemRefreshAt)return false;if(this.systemRefresh)return this.systemRefresh;this.nextSystemRefreshAt=this.now()+SYSTEM_REFRESH_MS;
-    const refresh=(async()=>{try{const metrics=await this.systemMonitor.sample();this.systemSlide=await renderSystemSlide(metrics);this.systemStatus={level:"ready",message:"CPU, GPU, and RAM updated."};this.log("system-refresh");return true}catch{const hadSample=Boolean(this.systemSlide);if(!hadSample)try{this.systemSlide=await renderSystemSlide({cpu:null,gpu:null,ram:null,ramUsed:0,ramTotal:0,sampledAt:this.now()})}catch{}this.systemStatus={level:hadSample?"warning":"error",message:hadSample?"System refresh failed; showing the last sample.":"System resources are unavailable."};this.log("system-error");return false}finally{if(this.systemRefresh===refresh)this.systemRefresh=null;this.broadcastStatus();if(!this.settings.showImages||this.showingSystem)this.renderAll(false)}})();this.systemRefresh=refresh;return refresh;
+    if(!force&&this.now()<this.nextSystemRefreshAt)return false;
+    const generation=this.lifecycleGeneration;
+    if(this.systemRefresh){if(this.systemRefreshGeneration===generation)return this.systemRefresh;await this.systemRefresh;return this.refreshSystem(force);}
+    this.nextSystemRefreshAt=this.now()+SYSTEM_REFRESH_MS;this.systemRefreshGeneration=generation;
+    const refresh=(async()=>{
+      try{
+        const metrics=await this.systemMonitor.sample();if(generation!==this.lifecycleGeneration)return false;
+        const slide=await renderSystemSlide(metrics);if(generation!==this.lifecycleGeneration)return false;
+        this.systemSlide=slide;this.systemStatus={level:"ready",message:"CPU, GPU, and RAM updated."};this.log("system-refresh");return true;
+      }catch{
+        if(generation!==this.lifecycleGeneration)return false;
+        const hadSample=Boolean(this.systemSlide);
+        if(!hadSample)try{const slide=await renderSystemSlide({cpu:null,gpu:null,ram:null,ramUsed:0,ramTotal:0,sampledAt:this.now()});if(generation!==this.lifecycleGeneration)return false;this.systemSlide=slide;}catch{}
+        this.systemStatus={level:hadSample?"warning":"error",message:hadSample?"System refresh failed; showing the last sample.":"System resources are unavailable."};this.log("system-error");return false;
+      }finally{if(this.systemRefresh===refresh)this.systemRefresh=null;if(generation===this.lifecycleGeneration){this.broadcastStatus();if(!this.settings.showImages||this.showingSystem)this.renderAll(false);}}
+    })();this.systemRefresh=refresh;return refresh;
   }
   async rescan(renderNow=false) {
+    if(renderNow)this.slideCache.clear();
+    if(this.scanRunning){if(renderNow){this.scanGeneration++;this.scanAgain=true;}return this.scanRunning;}
+    const run=this.scanFolder(renderNow);this.scanRunning=run;
+    try{return await run;}finally{if(this.scanRunning===run)this.scanRunning=null;if(this.scanAgain){this.scanAgain=false;if(this.activeContexts.size)void this.rescan(true);}}
+  }
+  async scanFolder(renderNow=false) {
     const generation=++this.scanGeneration;
     this.nextRescanAt=this.now()+RESCAN_INTERVAL_MS;
-    if (!this.settings.showImages) { this.stopWatcher(); if(renderNow)this.renderAll(false); return; }
+    if (!this.settings.showImages) { this.stopWatcher();if(this.galleryBudget)this.releaseMedia(); if(renderNow)this.renderAll(false); return; }
     if (!this.settings.folderPath) { this.useFallback("Using included sample slides.",renderNow); return; }
     try {
-      const result=await enumerateFolder(this.settings.folderPath,this.settings.sort,this.fsApi||undefined,this.slideCache);
+      const candidateCache=new Map(this.slideCache);
+      const result=await enumerateFolder(this.settings.folderPath,this.settings.sort,this.fsApi||undefined,candidateCache,this.imageLoader);
       if(generation!==this.scanGeneration)return;
+      if(this.galleryBudget&&this.activeContexts.size){
+        const admitted=this.galleryBudget.select(result.slides);const dropped=new Set(admitted.rejected.map(slide=>slide.signature));
+        result.slides=admitted.accepted;result.rejected+=admitted.rejected.length;
+        result.errors.push(...admitted.rejected.map(slide=>`${slide.name}: shared gallery memory budget reached; use a smaller folder`));
+        result.resized=result.slides.filter(slide=>slide.resized).length;
+        const shared=new Map(result.slides.map(slide=>[slide.signature,slide]));
+        for(const [key,slide] of candidateCache){if(dropped.has(slide?.signature))candidateCache.delete(key);else if(shared.has(slide?.signature)){const value=shared.get(slide.signature);candidateCache.set(key,{...slide,dataUri:value.dataUri});}}
+      }
+      this.slideCache=candidateCache;
       for(const key of this.slideCache.keys())if(!result.cacheKeys.has(key))this.slideCache.delete(key);
       if (!result.slides.length) { this.useFallback(result.rejected ? "No supported images; using sample slides." : "Folder is empty; using sample slides.",renderNow); return; }
       const current=this.slides[this.index]?.signature; this.slides=result.slides;
       const retained=this.slides.findIndex((slide)=>slide.signature===current); this.index=retained>=0?retained:0;
-      const details=[`${result.slides.length} image(s) loaded`,result.resized?`${result.resized} resized with centered cover`:"",result.rejected?`${result.rejected} rejected`:""].filter(Boolean).join("; ")+".";
+      const details=[`${result.slides.length} media item(s) loaded`,result.resized?`${result.resized} resized with centered cover`:"",result.rejected?`${result.rejected} rejected. ${result.errors.join('; ')}`:""].filter(Boolean).join("; ")+".";
       this.setStatus(result.rejected?"warning":"ready",details,result.slides.length);
       this.ensureWatcher(); if (renderNow) this.renderAll(false);
     } catch { if(generation===this.scanGeneration)this.useFallback("Folder unavailable; using sample slides.",renderNow,"error"); }
   }
-  useFallback(message,renderNow,level="warning") { this.slides=this.fallbackSlides; this.index=Math.min(this.index,this.slides.length-1); this.setStatus(level,message,this.slides.length); this.stopWatcher(); if(renderNow)this.renderAll(false); }
+  useFallback(message,renderNow,level="warning") { this.galleryBudget?.release();this.slides=this.fallbackSlides; this.index=Math.min(this.index,this.slides.length-1); this.setStatus(level,message,this.slides.length); this.stopWatcher(); if(renderNow)this.renderAll(false); }
   setStatus(level,message,count) { this.status={level,message,count}; this.broadcastStatus(); this.log(`status-${level}`); }
   snapshot() { return { type:"state", settings:this.settings, status:this.status, weatherStatus:this.weatherStatus, systemStatus:this.systemStatus }; }
   sendStatus(context) { try { this.client.sendToPropertyInspector?.(this.snapshot(),context); } catch { this.log("inspector-send-error"); } }
@@ -227,16 +274,22 @@ export class SlideshowService {
   informationSlide(view) { if(view==="dateTime")return createDateTimeSlide(this.now(),this.settings.dateFormat);if(view==="weather")return this.weatherSlide||createWeatherSlide(null,this.settings.weatherUnits,undefined,this.weatherStatus.message);return this.systemSlide; }
   render(context,force=false) {
     const slide=this.currentSlide(); if(!slide)return;
-    if(!force && this.lastSignature.get(context)===slide.signature)return;
-    try { this.client.setBaseDataIcon(context,slide.dataUri,""); this.lastSignature.set(context,slide.signature); this.log("render",slide.name); }
+    if(!force && this.lastSignature.get(context)===slide.signature&&!this.displayPlayer.contexts.get(context)?.failed)return;
+    try { this.displayPlayer.display(context,slide,undefined,force); this.lastSignature.set(context,slide.signature); this.log("render"); }
     catch { this.log("render-error"); }
   }
   renderAll(force=false) { for(const context of this.activeContexts)this.render(context,force); }
   async tick() {
+    if(this.tickRunning||!this.activeContexts.size)return;
+    this.tickRunning=true;const generation=this.lifecycleGeneration;
+    try{await this.tickOnce(generation);}finally{this.tickRunning=false;}
+  }
+  async tickOnce(generation) {
     const time=this.now();
-    if(this.weatherEnabled()&&time>=this.nextWeatherRefreshAt)await this.refreshWeather(false);
-    if(!this.settings.showImages){const views=this.informationViews();if(views.length>1&&time>=this.nextSlideAt){const index=views.indexOf(this.informationView);this.informationView=views[(index+1)%views.length];if(this.informationView==="system")await this.refreshSystem(true);this.nextSlideAt=this.now()+this.informationDurationMs();this.renderAll(false);return}if(this.informationView==="system"&&time>=this.nextSystemRefreshAt)await this.refreshSystem(false);if(this.informationView==="dateTime")this.renderAll(false);return;}
-    if(time>=this.nextRescanAt)await this.rescan(false);
+    if(this.weatherEnabled()&&time>=this.nextWeatherRefreshAt)void this.refreshWeather(false);
+    if(!this.settings.showImages){const views=this.informationViews();if(views.length>1&&time>=this.nextSlideAt){const index=views.indexOf(this.informationView);this.informationView=views[(index+1)%views.length];if(this.informationView==="system")await this.refreshSystem(true);if(generation!==this.lifecycleGeneration||!this.activeContexts.size)return;this.nextSlideAt=this.now()+this.informationDurationMs();this.renderAll(false);return}if(this.informationView==="system"&&time>=this.nextSystemRefreshAt)await this.refreshSystem(false);if(generation!==this.lifecycleGeneration||!this.activeContexts.size)return;if(this.informationView==="dateTime")this.renderAll(false);return;}
+    if(time>=this.nextRescanAt)void this.rescan(false);
+    if(generation!==this.lifecycleGeneration||!this.activeContexts.size)return;
     if(this.showingWeather){
       if(time<this.weatherUntil)return;
       this.showingWeather=false;this.weatherUntil=0;this.imagesSinceWeather=0;const pending=this.finishPresentation(time);if(pending)await pending;return;
@@ -251,11 +304,11 @@ export class SlideshowService {
     }
     if(time<this.nextSlideAt)return;
     this.presentationQueue=[this.settings.showDateTime&&this.imagesSinceDateTime>=this.settings.dateTimeEverySlides?"dateTime":null,this.settings.showWeather&&this.weatherData&&this.imagesSinceWeather>=this.settings.weatherEverySlides?"weather":null,this.settings.showSystemStats&&this.imagesSinceSystem>=this.settings.systemEverySlides?"system":null].filter(Boolean);
-    if(this.presentationQueue[0]==="system")await this.refreshSystem(true);if(this.startNextPresentation(this.now()))return;
+    if(this.presentationQueue[0]==="system")await this.refreshSystem(true);if(generation!==this.lifecycleGeneration||!this.activeContexts.size)return;if(this.startNextPresentation(this.now()))return;
     this.nextSlideAt=time+this.settings.intervalSeconds*1000;this.advanceImage();
   }
   startNextPresentation(time) { const type=this.presentationQueue.shift();if(!type)return false;if(type==="dateTime"){this.showingDateTime=true;this.dateTimeUntil=time+this.settings.dateTimeDurationSeconds*1000;this.nextSlideAt=this.dateTimeUntil}else if(type==="weather"){this.showingWeather=true;this.weatherUntil=time+this.settings.weatherDurationSeconds*1000;this.nextSlideAt=this.weatherUntil}else{this.showingSystem=true;this.systemUntil=time+this.settings.systemDurationSeconds*1000;this.nextSlideAt=this.systemUntil}this.renderAll(false);return true; }
-  finishPresentation(time) { if(this.presentationQueue[0]==="system")return this.refreshSystem(true).then(()=>{this.startNextPresentation(this.now())});if(this.startNextPresentation(time))return null;this.advanceImage();this.nextSlideAt=time+this.settings.intervalSeconds*1000;this.renderAll(false);return null; }
+  finishPresentation(time) { const generation=this.lifecycleGeneration;if(this.presentationQueue[0]==="system")return this.refreshSystem(true).then(()=>{if(generation===this.lifecycleGeneration&&this.activeContexts.size)this.startNextPresentation(this.now())});if(this.startNextPresentation(time))return null;this.advanceImage();this.nextSlideAt=time+this.settings.intervalSeconds*1000;this.renderAll(false);return null; }
   informationViews() { return [this.settings.showDateTime?"dateTime":null,this.settings.showWeather?"weather":null,this.settings.showSystemStats?"system":null].filter(Boolean); }
   informationDurationMs() { return (this.informationView==="weather"?this.settings.weatherDurationSeconds:this.informationView==="system"?this.settings.systemDurationSeconds:this.settings.dateTimeDurationSeconds)*1000; }
   advanceImage() { const last=this.slides.length-1;if(this.index>=last&&!this.settings.loop)return false;this.index=this.index>=last?0:this.index+1;this.imagesSinceDateTime++;this.imagesSinceWeather++;this.imagesSinceSystem++;this.renderAll(false);return true; }
@@ -263,9 +316,10 @@ export class SlideshowService {
     if(this.activeContexts.size===0)return; this.ensureWatcher();
     if(!this.nextRescanAt)this.nextRescanAt=this.now()+RESCAN_INTERVAL_MS;
     if(!this.nextSlideAt)this.nextSlideAt=this.now()+this.settings.intervalSeconds*1000;
-    if(!this.timer)this.timer=this.timerApi.setInterval(()=>void this.tick(),1000);
+    if(!this.timer)this.timer=this.timerApi.setInterval(()=>this.tick(),1000);
   }
   ensureWatcher() {
+    if(!this.activeContexts.size)return;
     if(!this.settings.showImages||this.watcher||!this.settings.folderPath||this.status.count===0||this.slides===this.fallbackSlides)return;
     try { this.watcher=this.watchFactory(this.settings.folderPath,{persistent:false},()=>this.queueRescan()); this.watcher.on?.("error",()=>this.queueRescan()); }
     catch { this.watcher=null; }
@@ -275,7 +329,9 @@ export class SlideshowService {
     this.watchDebounce=this.timerApi.setTimeout(async()=>{this.watchDebounce=null;await this.rescan(true);},WATCH_DEBOUNCE_MS);
   }
   stopWatcher() { try{this.watcher?.close();}catch{} this.watcher=null; if(this.watchDebounce)this.timerApi.clearTimeout(this.watchDebounce); this.watchDebounce=null; }
-  stopRuntime() { this.scanGeneration++; if(this.timer)this.timerApi.clearInterval(this.timer); this.timer=null; this.nextSlideAt=0; this.nextRescanAt=0; this.showingDateTime=false; this.dateTimeUntil=0; this.imagesSinceDateTime=1; this.showingWeather=false; this.weatherUntil=0; this.imagesSinceWeather=1; this.showingSystem=false; this.systemUntil=0; this.imagesSinceSystem=1; this.presentationQueue=[]; this.stopWatcher(); }
-  close() { this.stopRuntime(); this.activeContexts.clear(); this.contexts.clear(); this.inspectors.clear(); this.lastSignature.clear(); this.slideCache.clear(); }
+  stopDisplays() { for(const context of this.contexts.keys())this.displayPlayer.remove(context); }
+  releaseMedia() { this.galleryBudget?.release();this.slides=this.fallbackSlides;this.slideCache.clear(); }
+  stopRuntime() { this.lifecycleGeneration++;this.weatherGeneration++; this.scanGeneration++; this.stopDisplays();  if(this.timer)this.timerApi.clearInterval(this.timer); this.timer=null; this.nextSlideAt=0; this.nextRescanAt=0; this.showingDateTime=false; this.dateTimeUntil=0; this.imagesSinceDateTime=1; this.showingWeather=false; this.weatherUntil=0; this.imagesSinceWeather=1; this.showingSystem=false; this.systemUntil=0; this.imagesSinceSystem=1; this.presentationQueue=[]; this.stopWatcher();if(this.galleryBudget)this.releaseMedia(); }
+  close() { this.stopRuntime(); this.activeContexts.clear(); this.contexts.clear(); this.inspectors.clear(); this.lastSignature.clear(); this.slideCache.clear();this.settingsRequested=false; }
   log(event,slide="") { const safe=/^[A-Za-z0-9._-]{1,128}$/.test(slide)?slide:""; this.logger(`[imageslide] ${JSON.stringify({event,slide:safe,active:this.activeContexts.size})}`); }
 }

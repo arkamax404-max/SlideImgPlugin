@@ -24,9 +24,13 @@ An existing successful **0.1.9** Setup patch does not need to be patched again. 
 5. Import `ImageSlide.ulanziDeckProfile` when prompted, or import it manually as **Image Slideshow**.
 6. Select the slideshow action, choose a folder in its Property Inspector, and verify the physical D200.
 
+## Source contribution: independent profile settings
+
+This source branch proposes independent preferences per profile. Existing release ZIPs remain unchanged. Each profile starts from the original shared preferences; later folder/timing/information changes are isolated. See [migration, private binding and validation](docs/PROFILE_SETTINGS.md). Plugin/action identity and Setup/restore behavior are preserved.
+
 ## Choose images
 
-The Property Inspector separates image, date/time, weather, and system-resource content. **Refresh folder** sits beside **Select folder**, and **Show image slideshow** controls whether images participate in the rotation. Settings are plugin-wide because the cloned profile has one large-display slideshow instance.
+The Property Inspector separates image, date/time, weather, and system-resource content. **Refresh folder** sits beside **Select folder**, and **Show image slideshow** controls whether images participate in the rotation. The released version uses plugin-wide settings; this source contribution isolates preferences per profile while pages within one profile share its configuration.
 
 | Rule | Behavior |
 | --- | --- |

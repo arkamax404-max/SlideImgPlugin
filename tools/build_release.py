@@ -70,6 +70,7 @@ EXCLUDED_PARTS = {
     ".github",
 }
 SOURCE_EXCLUDED_PARTS = {
+    ".local-pr",
     ".git",
     ".atl",
     ".codegraph",
