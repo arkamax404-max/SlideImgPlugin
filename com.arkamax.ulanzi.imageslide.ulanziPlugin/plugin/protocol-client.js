@@ -2,18 +2,21 @@ import EventEmitter from "node:events";
 import WebSocket from "ws";
 
 const REQUEST = "REQUEST";
+export const isActive=value=>value===true||value===1||value==='true'||value==='1';
 
 export class UlanziProtocolClient extends EventEmitter {
-  constructor({ WebSocketImpl = WebSocket } = {}) {
+  constructor({ WebSocketImpl = WebSocket, timerApi=globalThis } = {}) {
     super();
     this.WebSocketImpl = WebSocketImpl;
     this.websocket = null;
     this.uuid = "";
     this.key = "";
     this.actionid = "";
+    this.timerApi=timerApi;this.retry=null;this.stopping=false;
   }
 
   connect(uuid, port = 3906, address = "127.0.0.1") {
+    this.stopping=false;
     const [argvAddress, argvPort] = process.argv.slice(2);
     this.uuid = uuid;
     this.address = argvAddress || address;
@@ -24,7 +27,7 @@ export class UlanziProtocolClient extends EventEmitter {
       this.emit("connected", {});
     });
     this.websocket.on("error", () => this.emit("error", {}));
-    this.websocket.on("close", () => this.emit("close", {}));
+    this.websocket.on("close", () => {this.emit("close", {});if(!this.stopping&&!this.retry)this.retry=this.timerApi.setTimeout(()=>{this.retry=null;this.key="";this.actionid="";this.connect(uuid,port,address);},1500);});
     this.websocket.on("message", (payload) => this.receive(payload));
   }
 
@@ -45,8 +48,8 @@ export class UlanziProtocolClient extends EventEmitter {
       return;
     }
     data.context = this.encodeContext(data);
-    if (data.cmd === "setActive") data.active = Boolean(data.active ?? data.param?.active);
-    if (data.cmd === "setactive") data.active = Boolean(data.active ?? data.param?.active);
+    if (data.cmd === "setActive") data.active = isActive(data.active ?? data.param?.active);
+    if (data.cmd === "setactive") data.active = isActive(data.active ?? data.param?.active);
     this.emit(data.cmd, data);
   }
 
@@ -66,6 +69,7 @@ export class UlanziProtocolClient extends EventEmitter {
     const sent = this.send("state", { uuid, key, actionid, param: { statelist: [{ uuid, key, actionid, type: 1, data, textData: text, showtext: Boolean(text) }] } });
     if (!sent) throw new Error("WebSocket is not open");
   }
+  canSendFrame(bytes,budget=1024*1024){return this.websocket?.readyState===this.WebSocketImpl.OPEN&&this.websocket.bufferedAmount+bytes<=budget;}
   getGlobalSettings(context) {
     const { uuid, key, actionid } = this.decodeContext(context);
     return this.send("getGlobalSettings", { uuid, key, actionid });
@@ -95,5 +99,5 @@ export class UlanziProtocolClient extends EventEmitter {
   onClear(handler) { this.on("clear", handler); return this; }
   onClose(handler) { this.on("close", handler); return this; }
   onError(handler) { this.on("error", handler); return this; }
-  close() { this.websocket?.close(); }
+  close() { this.stopping=true;if(this.retry)this.timerApi.clearTimeout(this.retry);this.retry=null;this.websocket?.close(); }
 }

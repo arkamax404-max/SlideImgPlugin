@@ -6,3 +6,7 @@
 .build-package/
 # Local Pi runtime state
 .atl/
+
+# Local contribution diagnostics and media caches
+.local-pr/
+*results.txt
